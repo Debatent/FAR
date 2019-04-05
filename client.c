@@ -14,6 +14,10 @@ void vidermemoiretamponclavier(void){
     while( (c=getchar())!='\n' && c!=EOF);
 }
 
+
+
+
+
 int connection (int sock){
     /* demande à l'utilisateur de rentrer l'addresse ip et le port du serveur
     et se connecte au serveur
@@ -57,6 +61,12 @@ int connection (int sock){
 }
 
 
+
+
+
+
+
+
 int main (void){
 
     /*choix émission ou reception initial*/
@@ -91,6 +101,8 @@ int main (void){
         printf("Connection réussi\n");
     }
 
+
+
     bool continuer = true;
     int nbrdecaractere = 280;
     char message[nbrdecaractere+1];
@@ -98,7 +110,7 @@ int main (void){
         if (emetteur){/*pour émettre un message*/
             printf("Tapez le message en %d caractères:\n", nbrdecaractere);
             fgets(message, sizeof(nbrdecaractere)+1, stdin);
-            vidermemoiretamponclavier();
+
             char * pos1 = strchr(message,'\n');
             *pos1 ='\0';
 
@@ -131,6 +143,8 @@ int main (void){
             emetteur = true;
         }
     }
+
+
     close(dSock);
     printf("Déconnection\n");
     return 0;
