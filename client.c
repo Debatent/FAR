@@ -109,7 +109,7 @@ int main (void){
     while(continuer){
         if (emetteur){/*pour émettre un message*/
             printf("Tapez le message en %d caractères:\n", nbrdecaractere);
-            fgets(message, sizeof(nbrdecaractere)+1, stdin);
+            fgets(message, nbrdecaractere+1, stdin);
 
             char * pos1 = strchr(message,'\n');
             *pos1 ='\0';
