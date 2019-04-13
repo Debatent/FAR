@@ -101,7 +101,14 @@ int main (void){
         printf("Connection réussi\n");
     }
 
-
+    /*permet de configurer le serveur si emetteur ou recepteur*/
+    if (emetteur){
+        send(dSock,reponse, strlen(reponse),0);
+    }
+    else{
+        reponse = '0'
+        send(dSock,reponse, strlen(reponse),0);
+    }
 
     bool continuer = true;
     int nbrdecaractere = 280;
