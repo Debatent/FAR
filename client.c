@@ -18,12 +18,12 @@ void vidermemoiretamponclavier(void){
 
 
 
-int connection (int sock){
+int connexion (int sock){
     /* demande à l'utilisateur de rentrer l'addresse ip et le port du serveur
     et se connecte au serveur
-    prend en entré une socket en ipv4, de type TCP
+    prend en entrée une socket en ipv4, de type TCP
     renvoie 0 si tout s'est bien passé, et -1 si il y a eu un problème*/
-    char ip[INET_ADDRSTRLEN];/*Se connect à l'adresse ip*/
+    char ip[INET_ADDRSTRLEN];/*Se connecte à l'adresse ip*/
     printf ("Veuillez entrer l'adresse IP du serveur:\n");
     fgets (ip,sizeof(ip),stdin);
     char * correction = strchr(ip,'\n');
@@ -46,7 +46,7 @@ int connection (int sock){
         return -1;
     }
 
-    printf("Tentative de connection\n");
+    printf("Tentative de connexion\n");
     socklen_t lgA = sizeof(struct sockaddr_in);
     res = connect(sock,(struct sockaddr *) &adServ,lgA);
     if (res == -1){
@@ -90,15 +90,15 @@ int main (void){
         printf("recepteur\n");
     }
 
-    /* connection au serveur*/
+    /* connexion au serveur*/
     int dSock = socket (PF_INET, SOCK_STREAM, 0);
-    int res = connection(dSock);
+    int res = connexion(dSock);
     if (res == -1){
-        printf("Erreur: La connection a échoué\n");
+        printf("Erreur: La connexion a échouée\n");
         return -1;
     }
     else{
-        printf("Connection réussie\n");
+        printf("Connexion réussie\n");
     }
     char msg[2] = "1";
     char msg2[2] = "0";
@@ -154,6 +154,6 @@ int main (void){
 
 
     close(dSock);
-    printf("Déconnection\n");
+    printf("Déconnexion\n");
     return 0;
 }

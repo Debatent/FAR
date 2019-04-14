@@ -85,7 +85,7 @@ int main(void)
         return -1;
     }
 
-    /* Attente des connections */
+    /* Attente des connexions */
     listen(dS, 10);
     struct sockaddr_in aC;
     socklen_t lg = sizeof(struct sockaddr_in);
@@ -104,12 +104,12 @@ int main(void)
             vidermemoiretamponclavier();
         }
         deb = 1;
-        printf("En attente de connection ...\n");
+        printf("En attente de connexion ...\n");
         /* Mise en place de la communication avec les 2 clients */
         dSC = accept(dS, (struct sockaddr *)&aC, &lg);
         dSC2 = accept(dS, (struct sockaddr *)&aC, &lg);
 
-        /* Réception du premier message des connections entrantes pour déterminer l'émetteur et le récepteur */
+        /* Réception du premier message des connexions entrantes pour déterminer l'émetteur et le récepteur */
         recv(dSC, msg, sizeof(msg), 0);
         recv(dSC2, msg2, sizeof(msg2), 0);
 
