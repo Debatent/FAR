@@ -59,10 +59,6 @@ int echangeMessages(int emetteur, int recepteur)
     return 0;
 }
 
-int connection()
-{
-}
-
 int main(void)
 {
     /* Déclaration des variables */
@@ -115,7 +111,7 @@ int main(void)
 
         /* Réception du premier message des connections entrantes pour déterminer l'émetteur et le récepteur */
         recv(dSC, msg, sizeof(msg), 0);
-        recv(dSC2, msg, sizeof(msg), 0);
+        recv(dSC2, msg2, sizeof(msg2), 0);
 
         if ((strcmp("1", msg) == 0) && (strcmp("0", msg2) == 0))
         {

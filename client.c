@@ -71,7 +71,7 @@ int main (void){
 
     /*choix émission ou reception initial*/
     bool emetteur;
-    int reponse;
+    char reponse;
     printf("Tapez 1 si vous voulez émettre, 0 si vous voulez recevoir (réception par défaut):\n");
     reponse = getchar();
     vidermemoiretamponclavier();
@@ -98,16 +98,17 @@ int main (void){
         return -1;
     }
     else{
-        printf("Connection réussi\n");
+        printf("Connection réussie\n");
     }
+    char msg[2] = "1";
+    char msg2[2] = "0";
 
     /*permet de configurer le serveur si emetteur ou recepteur*/
     if (emetteur){
-        send(dSock,reponse, strlen(reponse),0);
+        send(dSock,msg, sizeof(msg),0);
     }
     else{
-        reponse = '0';
-        send(dSock,reponse, strlen(reponse),0);
+        send(dSock,msg2, sizeof(msg2),0);
     }
 
     bool continuer = true;
