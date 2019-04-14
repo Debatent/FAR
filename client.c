@@ -106,7 +106,7 @@ int main (void){
         send(dSock,reponse, strlen(reponse),0);
     }
     else{
-        reponse = '0'
+        reponse = '0';
         send(dSock,reponse, strlen(reponse),0);
     }
 
