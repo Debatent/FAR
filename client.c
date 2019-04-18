@@ -7,6 +7,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <pthread.h>
+
+struct message{
+    int taille;
+    char * msg;
+};
+
+struct messagethread{
+    int dSock;
+    struct message message;
+};
+
+
 
 void vidermemoiretamponclavier(void){
     /*vide la mémoire tampon du clavier*/
@@ -62,33 +75,56 @@ int connexion (int sock){
 
 
 
+void *recevoirmessage(void* args){
+    struct messagethread *argument = (struct messagethread*) args;
+    int res;
+    char msg[argument->message.taille];
+    while(1){
+        res = recv(argument ->dSock,msg, sizeof(msg),0);
+        if (res == 0){
+            printf("Warning: Serveur déconnecté\n");
+            close(argument->dSock);
+            break;
+        }
+        else if(res == -1){
+            printf("Erreur: Pas de message reçus\n");
+            break;
+        }
+        puts(msg);
+    }
+    return NULL;
+}
+
+
+void *envoyermessage(void* args){
+    struct messagethread *argument = (struct messagethread*) args;
+    int res;
+    char msg [argument->message.taille];
+    while(1){
+        fgets(msg, argument->message.taille + 1, stdin);
+
+        char * pos1 = strchr(msg,'\n');
+        *pos1 ='\0';
+
+        res = send(argument->dSock,msg, strlen(msg)+1,0);
+        if (res == -1){
+            printf("Erreur: Le message n'a pas été envoyé\n");
+            break;
+        }
+        if (strcmp(msg,"fin")==0){
+            printf("Deconnection\n");
+            close(argument->dSock);
+            break;
+        }
+    }
+    return NULL;
+}
 
 
 
 
 
 int main (void){
-
-    /*choix émission ou reception initial*/
-    bool emetteur;
-    char reponse;
-    printf("Tapez 1 si vous voulez émettre, 0 si vous voulez recevoir (réception par défaut):\n");
-    reponse = getchar();
-    vidermemoiretamponclavier();
-
-    if (reponse == '1'){
-        emetteur = true;
-    }
-    else{
-        emetteur = false;
-    }
-    printf("Vous êtes ");
-    if (emetteur){
-        printf("émetteur\n");
-    }
-    else{
-        printf("recepteur\n");
-    }
 
     /* connexion au serveur*/
     int dSock = socket (PF_INET, SOCK_STREAM, 0);
@@ -100,60 +136,32 @@ int main (void){
     else{
         printf("Connexion réussie\n");
     }
-    char msg[2] = "1";
-    char msg2[2] = "0";
-
-    /*permet de configurer le serveur si emetteur ou recepteur*/
-    if (emetteur){
-        send(dSock,msg, sizeof(msg),0);
-    }
-    else{
-        send(dSock,msg2, sizeof(msg2),0);
-    }
-
-    bool continuer = true;
-    int nbrdecaractere = 280;
-    char message[nbrdecaractere+1];
-    while(continuer){
-        if (emetteur){/*pour émettre un message*/
-            printf("Tapez le message en %d caractères:\n", nbrdecaractere);
-            fgets(message, nbrdecaractere+1, stdin);
-
-            char * pos1 = strchr(message,'\n');
-            *pos1 ='\0';
-
-            res = send(dSock,message, strlen(message)+1,0);
-            if (res == -1){
-                printf("Erreur: Le message n'a pas été envoyé\n");
-                break;
-            }
-            if (strcmp(message,"fin")==0){
-                continuer = false;
-            }
-            emetteur = false;
-        }
-
-        else{
-            printf("En attente de message\n");/*Pour recevoir un message*/
-            res = recv(dSock, message, sizeof(message),0);
-            if (res == 0){
-                printf("Warning: Serveur déconnecté\n");
-                break;
-            }
-            else if(res == -1){
-                printf("Erreur: Pas de message reçus\n");
-                break;
-            }
-            printf("Reçu: \n%s\n", message);
-            if (strcmp(message,"fin") == 0){
-                continuer = false;
-            }
-            emetteur = true;
-        }
-    }
 
 
-    close(dSock);
+
+
+    struct message message;
+        message.taille = 280;
+
+
+
+    struct messagethread msgthr;
+        msgthr.dSock = dSock;
+        msgthr.message = message;
+
+    pthread_t recepteur;
+    pthread_create (&recepteur, NULL, recevoirmessage, (void *)&msgthr);
+
+    printf("Tapez les messages en %d caractères:\n", message.taille);
+    pthread_t envoyeur;
+    pthread_create (&envoyeur, NULL, envoyermessage, (void *)&msgthr);
+
+    pthread_join(recepteur, NULL);
+    pthread_join(envoyeur,NULL);
+    pthread_exit(NULL);
+
+
     printf("Déconnexion\n");
+
     return 0;
 }
