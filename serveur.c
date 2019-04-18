@@ -9,6 +9,7 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
+#include <pthread.h>
 
 void vidermemoiretamponclavier(void)
 {
@@ -17,53 +18,42 @@ void vidermemoiretamponclavier(void)
     while ((c = getchar()) != '\n' && c != EOF);
 }
 
-int echangeMessages(int emetteur, int recepteur)
-{
+/* Structure des arguments passés au thread (client 1 et client 2)*/
+struct thread_args {
+    int dSC;
+    int dSC2;
+};
+
+/* Thread qui réceptionne le message d'un client et l'envoie à l'autre en boucle  */
+void *threadEnvoi(void *args) {
     char msg[280];
-    /* Boucle d'échange des messages entre les 2 clients */
-    while (1)
-    {
-        bzero(msg, 280);
-
-        /* Réception du message du client émetteur */
-        recv(emetteur, msg, sizeof(msg), 0);
-        printf("Reçu : %s\n", msg);
-
-        /* Envoi du message au second client */
-        send(recepteur, msg, sizeof(msg), 0);
-
-        /* Condition d'arrêt de la communication (message = fin) */
-        if (strcmp("fin", msg) == 0)
-        {
-            printf("Fin de la communication\n");
+    int res;
+    /* Récupération des arguments */
+    struct thread_args *arguments = (struct thread_args *) args;
+    /* Condition d'arrêt : Pas de réception (le client a mis fin à la connexion) */
+    while (1) {
+        res = recv(arguments->dSC, msg, sizeof(msg),0);
+        if (res < 0) {
             break;
         }
-        printf("Message envoyé au second client...\n");
-        bzero(msg, 280);
-
-        /* Réception de la réponse du second client */
-        recv(recepteur, msg, sizeof(msg), 0);
-        printf("Reçu : %s\n", msg);
-
-        /* Envoi de la réponse au premier client */
-        send(emetteur, msg, sizeof(msg), 0);
-
-        /* Condition d'arrêt de la communication (message = fin) */
-        if (strcmp("fin", msg) == 0)
-        {
-            printf("Fin de la communication\n");
+        res = send(arguments->dSC2, msg, sizeof(msg), 0);
+        if (res < 0) {
             break;
         }
-        printf("Message envoyé au premier client...\n");
+        bzero(msg, 280);
     }
-    return 0;
+    return NULL;
 }
 
 int main(void)
 {
     /* Déclaration des variables */
-    int dS, res, dSC, dSC2, deb = 0;
-    char msg[280], msg2[280];
+    int dS, res, deb = 0;
+    pthread_t tid;
+
+    /* Déclaration des structures */
+    struct thread_args arguments1;
+    struct thread_args arguments2;
 
     /* Initialisation du serveur */
     dS = socket(PF_INET, SOCK_STREAM, 0);
@@ -105,26 +95,20 @@ int main(void)
         }
         deb = 1;
         printf("En attente de connexion ...\n");
-        /* Mise en place de la communication avec les 2 clients */
-        dSC = accept(dS, (struct sockaddr *)&aC, &lg);
-        dSC2 = accept(dS, (struct sockaddr *)&aC, &lg);
 
-        /* Réception du premier message des connexions entrantes pour déterminer l'émetteur et le récepteur */
-        recv(dSC, msg, sizeof(msg), 0);
-        recv(dSC2, msg2, sizeof(msg2), 0);
+        /* Attente de 2 connexions entrantes */
+        arguments1.dSC = accept(dS, (struct sockaddr *)&aC, &lg);
+        arguments1.dSC2 = accept(dS, (struct sockaddr *)&aC, &lg);
+        arguments2.dSC = arguments1.dSC2;
+        arguments2.dSC2 = arguments1.dSC;
 
-        if ((strcmp("1", msg) == 0) && (strcmp("0", msg2) == 0))
-        {
-            echangeMessages(dSC, dSC2);
-        }
-        else if ((strcmp("0", msg) == 0) && strcmp("1", msg2) == 0)
-        {
-            echangeMessages(dSC2, dSC);
-        }
-        else
-        {
-            printf("Erreur, il faut un émetteur et un récepteur pour commencer l'échange\n");
-        }
+        /* Création de 2 threads permettant la transmission des messages */
+        pthread_create(&tid, NULL, threadEnvoi, (void *)&arguments1);
+        pthread_create(&tid, NULL, threadEnvoi, (void *)&arguments2);
+        /* Attends que les threads soient terminés */
+        pthread_join(tid, NULL);
+        pthread_exit(NULL);
+
     }
 
     /*Arrêt du serveur et fin */
