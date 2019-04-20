@@ -49,7 +49,7 @@ int main(void)
 {
     /* Déclaration des variables */
     int dS, res, deb = 0;
-    pthread_t tid;
+    pthread_t tid1, tid2;
 
     /* Déclaration des structures */
     struct thread_args arguments1;
@@ -103,10 +103,12 @@ int main(void)
         arguments2.dSC2 = arguments1.dSC;
 
         /* Création de 2 threads permettant la transmission des messages */
-        pthread_create(&tid, NULL, threadEnvoi, (void *)&arguments1);
-        pthread_create(&tid, NULL, threadEnvoi, (void *)&arguments2);
+        pthread_create(&tid1, NULL, threadEnvoi, (void *)&arguments1);
+        pthread_create(&tid2, NULL, threadEnvoi, (void *)&arguments2);
         /* Attends que les threads soient terminés */
-        pthread_join(tid, NULL);
+        pthread_join(tid1, NULL);
+        pthread_join(tid2, NULL);
+
         pthread_exit(NULL);
 
     }
