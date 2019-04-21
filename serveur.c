@@ -36,6 +36,12 @@ void *threadEnvoi(void *args) {
         if (res == 0) {
             break;
         }
+        if (strcmp(msg,"fin") == 0){
+            send(arguments->dSC, msg, sizeof(msg), 0);
+            char msg2[280] ="L autre client s est déconnecté\0";
+            send(arguments->dSC2, msg2, sizeof(msg2), 0);
+            break;
+        }
         res = send(arguments->dSC2, msg, sizeof(msg), 0);
         if (res == 0) {
             break;
