@@ -83,11 +83,13 @@ void *recevoirmessage(void* args){
         res = recv(argument ->dSock,msg, sizeof(msg),0);
         if (res == 0){
             printf("Warning: Serveur déconnecté\n");
-            close(argument->dSock);
             break;
         }
         else if(res == -1){
             printf("Erreur: Pas de message reçus\n");
+            break;
+        } else if (strcmp(msg, "fin") == 0) {
+            printf("Fin de la réception des messages\n");
             break;
         }
         puts(msg);
@@ -112,8 +114,7 @@ void *envoyermessage(void* args){
             break;
         }
         if (strcmp(msg,"fin")==0){
-            printf("Deconnection\n");
-            close(argument->dSock);
+            printf("Fin de l'envoi des messages\n");
             break;
         }
     }
@@ -156,10 +157,12 @@ int main (void){
     pthread_t envoyeur;
     pthread_create (&envoyeur, NULL, envoyermessage, (void *)&msgthr);
 
+    printf("PTHREAD JOIN\n");
+
     pthread_join(recepteur, NULL);
     pthread_join(envoyeur,NULL);
-    pthread_exit(NULL);
 
+    close(dSock);
 
     printf("Déconnexion\n");
 

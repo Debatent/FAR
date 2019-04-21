@@ -33,11 +33,11 @@ void *threadEnvoi(void *args) {
     /* Condition d'arrêt : Pas de réception (le client a mis fin à la connexion) */
     while (1) {
         res = recv(arguments->dSC, msg, sizeof(msg),0);
-        if (res < 0) {
+        if (res == 0) {
             break;
         }
         res = send(arguments->dSC2, msg, sizeof(msg), 0);
-        if (res < 0) {
+        if (res == 0) {
             break;
         }
         bzero(msg, 280);
@@ -60,7 +60,6 @@ int main(void)
     struct sockaddr_in ad;
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY;
-    ad.sin_port = 45001;
     res = bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 
     /* Affichage du port */
@@ -108,8 +107,8 @@ int main(void)
         /* Attends que les threads soient terminés */
         pthread_join(tid1, NULL);
         pthread_join(tid2, NULL);
+        puts("FIN");
 
-        pthread_exit(NULL);
 
     }
 
