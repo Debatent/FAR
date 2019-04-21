@@ -10,12 +10,14 @@
 #include <pthread.h>
 
 struct message{
-    int taille;
+    char * pseudo;
     char * msg;
 };
 
 struct messagethread{
     int dSock;
+    int taillemsg;
+    int taillepseudo;
     struct message message;
 };
 
@@ -78,9 +80,10 @@ int connexion (int sock){
 void *recevoirmessage(void* args){
     struct messagethread *argument = (struct messagethread*) args;
     int res;
-    char msg[argument->message.taille];
+    struct message recu;
+
     while(1){
-        res = recv(argument ->dSock,msg, sizeof(msg),0);
+        res = recv(argument ->dSock,&recu, sizeof(struct message),0);
         if (res == 0){
             printf("Warning: Serveur déconnecté\n");
             break;
@@ -88,11 +91,11 @@ void *recevoirmessage(void* args){
         else if(res == -1){
             printf("Erreur: Pas de message reçus\n");
             break;
-        } else if (strcmp(msg, "fin") == 0) {
+        } else if (strcmp(recu.msg, "fin") == 0) {
             printf("Fin de la réception des messages\n");
             break;
         }
-        puts(msg);
+        printf("%s: %s\n",recu.pseudo, recu.msg);
     }
     return NULL;
 }
@@ -101,9 +104,9 @@ void *recevoirmessage(void* args){
 void *envoyermessage(void* args){
     struct messagethread *argument = (struct messagethread*) args;
     int res;
-    char msg [argument->message.taille];
+    char msg [argument->taillemsg];
     while(1){
-        fgets(msg, argument->message.taille + 1, stdin);
+        fgets(msg, argument->taillemsg + 1, stdin);
 
         char * pos1 = strchr(msg,'\n');
         *pos1 ='\0';
@@ -141,19 +144,26 @@ int main (void){
 
 
 
-    struct message message;
-        message.taille = 280;
-
-
 
     struct messagethread msgthr;
         msgthr.dSock = dSock;
-        msgthr.message = message;
+        msgthr.taillemsg = 280;
+        msgthr.taillepseudo = 12;
+
+
+    char pseudonyme[msgthr.taillepseudo];
+    printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",msgthr.taillepseudo);
+    fgets(pseudonyme, msgthr.taillepseudo + 1, stdin);
+
+    char * pos1 = strchr(pseudonyme,'\n');
+    *pos1 ='\0';
+
+    send (dSock, pseudonyme,strlen(pseudonyme) + 1,0);
 
     pthread_t recepteur;
     pthread_create (&recepteur, NULL, recevoirmessage, (void *)&msgthr);
 
-    printf("Tapez les messages en %d caractères:\n", message.taille);
+    printf("Tapez les messages en %d caractères:\n", msgthr.taillemsg);
     pthread_t envoyeur;
     pthread_create (&envoyeur, NULL, envoyermessage, (void *)&msgthr);
 
