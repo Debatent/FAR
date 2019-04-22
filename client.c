@@ -107,10 +107,10 @@ void *recevoirmessage(void* args){
 void *envoyermessage(void* args){
     struct messagethread *argument = (struct messagethread*) args;
     int res;
-    char msg [279];
+    char msg [argument->taillemsg-1];
     int dSock = argument->dSock;
     while(1){
-        fgets(msg, 279, stdin);
+        fgets(msg, argument->taillemsg-1, stdin);
 
         char * pos1 = strchr(msg,'\n');
         *pos1 ='\0';

@@ -13,6 +13,7 @@
 
 #define TAILLEMAX 25
 
+/* Déclaration du tableau de sockets et remplissage avec des 0 */
 int tabSockets[TAILLEMAX] = { 0 };
 
 
@@ -28,6 +29,16 @@ struct thread_args {
     int dSC;
     char pseudo[280];
 };
+
+int getNbConnectes() {
+    int count = 0;
+    for (int i = 0; i < TAILLEMAX-1; i++) {
+        if (tabSockets[i] != 0) {
+            count++;
+        }
+    }
+    return count;
+}
 
 /* Thread qui réceptionne le message d'un client et l'envoie à l'autre en boucle  */
 void *threadEnvoi(void *args) {
@@ -63,7 +74,7 @@ void *threadEnvoi(void *args) {
                     if (tabSockets[i] == dSC) {
                         tabSockets[i] = 0;
                     } else {
-                        printf("ENVOI NUMERO FIN %d\n", i);
+                        printf("ENVOI AU CLIENT %d\n", i);
                         res = send(tabSockets[i], messageComplet, sizeof(messageComplet), 0);
                         if (res == 0) {
                             tabSockets[i] = 0;
@@ -109,7 +120,7 @@ int main(void)
     struct sockaddr_in ad;
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY;
-    ad.sin_port = 45001;
+    ad.sin_port = 45000;
     res = bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 
     /* Affichage du port */
@@ -128,30 +139,19 @@ int main(void)
     listen(dS, 10);
     struct sockaddr_in aC;
     socklen_t lg = sizeof(struct sockaddr_in);
+    char msg[280];
 
     /* Boucle principale pour les connexions des clients */
     while (1)
     {
-        /* Condition d'arrêt du serveur, seulement si le tableau est rempli de 0 et qu'on a déja itéré une fois */
-        if (deb == 1)
-        {
-            printf("Voulez vous arrêter le serveur ? o/n\n");
-            if (getchar() == 'o')
-            {
-                break;
-            }
-            vidermemoiretamponclavier();
-            i = 0;
-        }
-        deb = 1;
-
         /* Attente de connexions entrantes */
         arguments.dSC = accept(dS, (struct sockaddr *)&aC, &lg);
         printf("Client DSC : %d\n", arguments.dSC);
 
         /* Ajout du socket du client au tableau de sockets */
         tabSockets[i] = arguments.dSC;
-        printf("Tableau : %d\n", tabSockets[i]);
+        sprintf(msg, "Il y a actuellement %d connecté(s)", getNbConnectes());
+        send(arguments.dSC, msg, sizeof(msg), 0);
         /* Création du thread permettant la transmission des messages */
         pthread_create(&tid[i], NULL, threadEnvoi, (void *)&arguments);
         i++;
