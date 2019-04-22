@@ -11,6 +11,11 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#define TAILLEMAX 25
+
+int tabSockets[TAILLEMAX] = { 0 };
+
+
 void vidermemoiretamponclavier(void)
 {
     /*vide la mémoire tampon du clavier*/
@@ -21,32 +26,71 @@ void vidermemoiretamponclavier(void)
 /* Structure des arguments passés au thread (client 1 et client 2)*/
 struct thread_args {
     int dSC;
-    int dSC2;
+    char pseudo[280];
 };
 
 /* Thread qui réceptionne le message d'un client et l'envoie à l'autre en boucle  */
 void *threadEnvoi(void *args) {
     char msg[280];
+    char messageComplet[280];
     int res;
+    char pseudo[280];
+    int dSC;
     /* Récupération des arguments */
     struct thread_args *arguments = (struct thread_args *) args;
+    /* Réception du pseudo */
+    dSC = arguments->dSC;
+    recv(dSC, pseudo, sizeof(pseudo), 0);
+    printf("Pseudo : %s\n", pseudo);
+
     /* Condition d'arrêt : Pas de réception (le client a mis fin à la connexion) */
     while (1) {
-        res = recv(arguments->dSC, msg, sizeof(msg),0);
+        /* En attente de réception d'un message */
+        printf("ENTREE DANS LE THREAD AVEC DSC : %d\n", dSC);
+        res = recv(dSC, msg, sizeof(msg),0);
         if (res == 0) {
             break;
         }
+        /* Si le message reçu est "fin" */
         if (strcmp(msg,"fin") == 0){
-            send(arguments->dSC, msg, sizeof(msg), 0);
-            char msg2[280] ="L autre client s est déconnecté\0";
-            send(arguments->dSC2, msg2, sizeof(msg2), 0);
+            /* Formattage du message à envoyer */
+            strcpy(messageComplet, pseudo);
+            strcat(messageComplet, " a quitté la discussion\0");
+            /* Envoi à tous les clients */
+            for (int i =0; i < TAILLEMAX-1; i++) {
+                if (tabSockets[i] != 0) {
+                    /* Suppression du socket du client ayant émit "fin" dans le tableau */
+                    if (tabSockets[i] == dSC) {
+                        tabSockets[i] = 0;
+                    } else {
+                        printf("ENVOI NUMERO FIN %d\n", i);
+                        res = send(tabSockets[i], messageComplet, sizeof(messageComplet), 0);
+                        if (res == 0) {
+                            tabSockets[i] = 0;
+                        }
+                    }
+                }
+            }
             break;
-        }
-        res = send(arguments->dSC2, msg, sizeof(msg), 0);
-        if (res == 0) {
-            break;
+        }          
+        /* Formattage du message à envoyer */ 
+        strcpy(messageComplet, pseudo);
+        strcat(messageComplet, " : ");
+        strcat(messageComplet, msg);
+        printf("%s\n", messageComplet);
+        /* Envoi à tous les clients */
+        for (int i = 0; i < TAILLEMAX-1; i++) {
+            if (tabSockets[i] != 0 && tabSockets[i] != dSC) {
+                printf("ENVOI AU CLIENT %d\n", tabSockets[i]);
+                res = send(tabSockets[i], messageComplet, sizeof(messageComplet), 0);
+                if (res == 0) {
+                    tabSockets[i] = 0;
+                }
+            }
         }
         bzero(msg, 280);
+        bzero(messageComplet, 280);
+
     }
     return NULL;
 }
@@ -54,18 +98,18 @@ void *threadEnvoi(void *args) {
 int main(void)
 {
     /* Déclaration des variables */
-    int dS, res, deb = 0;
-    pthread_t tid1, tid2;
+    int dS, res, i=0;
+    pthread_t tid[TAILLEMAX];
 
     /* Déclaration des structures */
-    struct thread_args arguments1;
-    struct thread_args arguments2;
+    struct thread_args arguments;
 
     /* Initialisation du serveur */
     dS = socket(PF_INET, SOCK_STREAM, 0);
     struct sockaddr_in ad;
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY;
+    ad.sin_port = 45001;
     res = bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 
     /* Affichage du port */
@@ -88,7 +132,7 @@ int main(void)
     /* Boucle principale pour les connexions des clients */
     while (1)
     {
-        /* Condition d'arrêt du serveur */
+        /* Condition d'arrêt du serveur, seulement si le tableau est rempli de 0 et qu'on a déja itéré une fois */
         if (deb == 1)
         {
             printf("Voulez vous arrêter le serveur ? o/n\n");
@@ -97,24 +141,20 @@ int main(void)
                 break;
             }
             vidermemoiretamponclavier();
+            i = 0;
         }
         deb = 1;
-        printf("En attente de connexion ...\n");
 
-        /* Attente de 2 connexions entrantes */
-        arguments1.dSC = accept(dS, (struct sockaddr *)&aC, &lg);
-        arguments1.dSC2 = accept(dS, (struct sockaddr *)&aC, &lg);
-        arguments2.dSC = arguments1.dSC2;
-        arguments2.dSC2 = arguments1.dSC;
+        /* Attente de connexions entrantes */
+        arguments.dSC = accept(dS, (struct sockaddr *)&aC, &lg);
+        printf("Client DSC : %d\n", arguments.dSC);
 
-        /* Création de 2 threads permettant la transmission des messages */
-        pthread_create(&tid1, NULL, threadEnvoi, (void *)&arguments1);
-        pthread_create(&tid2, NULL, threadEnvoi, (void *)&arguments2);
-        /* Attends que les threads soient terminés */
-        pthread_join(tid1, NULL);
-        pthread_join(tid2, NULL);
-        puts("FIN");
-
+        /* Ajout du socket du client au tableau de sockets */
+        tabSockets[i] = arguments.dSC;
+        printf("Tableau : %d\n", tabSockets[i]);
+        /* Création du thread permettant la transmission des messages */
+        pthread_create(&tid[i], NULL, threadEnvoi, (void *)&arguments);
+        i++;
 
     }
 

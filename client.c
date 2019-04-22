@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdbool.h>
 #include <pthread.h>
 
@@ -79,11 +80,12 @@ int connexion (int sock){
 
 void *recevoirmessage(void* args){
     struct messagethread *argument = (struct messagethread*) args;
-    int res;
-    struct message recu;
+    int res, dSock;
+    char msg[280];
+    dSock = argument->dSock;
 
     while(1){
-        res = recv(argument ->dSock,&recu, sizeof(struct message),0);
+        res = recv(dSock,msg, sizeof(msg)+1,0);
         if (res == 0){
             printf("Warning: Serveur déconnecté\n");
             break;
@@ -91,11 +93,12 @@ void *recevoirmessage(void* args){
         else if(res == -1){
             printf("Erreur: Pas de message reçus\n");
             break;
-        } else if (strcmp(recu.msg, "fin") == 0) {
+        } else if (strcmp(msg, "fin") == 0) {
             printf("Fin de la réception des messages\n");
             break;
         }
-        printf("%s: %s\n",recu.pseudo, recu.msg);
+        printf("%s\n", msg);
+        bzero(msg, 280);
     }
     return NULL;
 }
@@ -104,14 +107,15 @@ void *recevoirmessage(void* args){
 void *envoyermessage(void* args){
     struct messagethread *argument = (struct messagethread*) args;
     int res;
-    char msg [argument->taillemsg];
+    char msg [279];
+    int dSock = argument->dSock;
     while(1){
-        fgets(msg, argument->taillemsg + 1, stdin);
+        fgets(msg, 279, stdin);
 
         char * pos1 = strchr(msg,'\n');
         *pos1 ='\0';
 
-        res = send(argument->dSock,msg, strlen(msg)+1,0);
+        res = send(dSock,msg, sizeof(msg)+1,0);
         if (res == -1){
             printf("Erreur: Le message n'a pas été envoyé\n");
             break;
@@ -167,9 +171,6 @@ int main (void){
     pthread_t envoyeur;
     pthread_create (&envoyeur, NULL, envoyermessage, (void *)&msgthr);
 
-    printf("PTHREAD JOIN\n");
-
-    pthread_join(recepteur, NULL);
     pthread_join(envoyeur,NULL);
 
     close(dSock);
