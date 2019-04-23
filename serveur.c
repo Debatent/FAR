@@ -13,6 +13,13 @@
 
 #define TAILLEMAX 25
 
+int dS;
+
+void traitement ( int n){
+    close(dS);
+    puts("Arret serveur");
+    _exit(0);
+}
 /* Déclaration du tableau de sockets et remplissage avec des 0 */
 int tabSockets[TAILLEMAX] = { 0 };
 
@@ -83,8 +90,8 @@ void *threadEnvoi(void *args) {
                 }
             }
             break;
-        }          
-        /* Formattage du message à envoyer */ 
+        }
+        /* Formattage du message à envoyer */
         strcpy(messageComplet, pseudo);
         strcat(messageComplet, " : ");
         strcat(messageComplet, msg);
@@ -109,7 +116,7 @@ void *threadEnvoi(void *args) {
 int main(void)
 {
     /* Déclaration des variables */
-    int dS, res, i=0;
+    int res, i=0;
     pthread_t tid[TAILLEMAX];
 
     /* Déclaration des structures */
@@ -141,6 +148,8 @@ int main(void)
     socklen_t lg = sizeof(struct sockaddr_in);
     char msg[280];
 
+
+    signal(SIGINT,traitement);
     /* Boucle principale pour les connexions des clients */
     while (1)
     {
