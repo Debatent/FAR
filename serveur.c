@@ -66,15 +66,29 @@ void *threadEnvoi(void * numCli) {
     char messageComplet[280];
     int res, fin = 0;
     char pseudo[280];
-    int num = *((int *) numCli);
-    printf("%d\n", num);
-    int dSC = tabSockets[num].dSC;
-
+    int i = numCli;
+    int dSC = tabSockets[i].dSC;
+    /* Réception du pseudo */
+    while (fin != 1) {
+        recv(dSC, pseudo, sizeof(pseudo), 0);
+        /* Si le pseudo est déjà pris, on demande d'en rentrer un autre */
+        if (getPseudo(pseudo) == 0) {
+            strcpy(msg, "-1");
+            printf("EXISTANT : %s\n", msg);
+            send(dSC, msg, sizeof(msg), 0);
+        } else {
+            strcpy(msg, "0");
+            printf("OK : %s\n", msg);
+            send(tabSockets[i].dSC, msg, sizeof(msg), 0);
+            strcpy(tabSockets[i].pseudo, pseudo);
+            fin = 1;
+        }
+    }
 
     printf("Pseudo : %s\n", pseudo);
     printf("ID du client : %d\n", dSC);
-    printf("Adresse IP : %s\n", inet_ntoa(tabSockets[num].aC.sin_addr));
-    printf("Port : %d\n",(int) ntohs(tabSockets[num].aC.sin_port));
+    printf("Adresse IP : %s\n", inet_ntoa(tabSockets[i].aC.sin_addr));
+    printf("Port : %d\n",(int) ntohs(tabSockets[i].aC.sin_port));
 
     /* Condition d'arrêt : Pas de réception (le client a mis fin à la connexion) */
     while (1) {
@@ -163,7 +177,6 @@ int main(void)
     struct sockaddr_in aC;
     socklen_t lg = sizeof(struct sockaddr_in);
     char msg[280];
-    int *arg;
 
     signal(SIGINT,traitement);
     /* Boucle principale pour les connexions des clients */
@@ -173,11 +186,9 @@ int main(void)
         tabSockets[i].dSC = accept(dS, (struct sockaddr *)&aC, &lg);
         tabSockets[i].aC = aC;
         printf("Client DSC : %d\n", tabSockets[i].dSC);
-        sprintf(msg, "Il y a actuellement %d connecté(s)", getNbConnectes());
-        send(tabSockets[i].dSC, msg, sizeof(msg), 0);
+
         /* Création du thread permettant la transmission des messages */
-        *arg = i;
-        pthread_create(&tid[i], NULL, threadEnvoi, arg);
+        pthread_create(&tid[i], NULL, threadEnvoi, i);
         i++;
 
     }

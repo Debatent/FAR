@@ -79,32 +79,32 @@ int connexion (int sock){
 }
 
 
-int entrerpseudo(void* args){
+int entrerpseudo(struct messagethread argument){
     /**
      *Demande à l'utilisateur son pseudo, et le redemande si le pseudo est déjà pris
      *Prend en entrée un message thread
      *renvoie 0 si le pseudo a été validé, -1 en cas d'erreur
      */
-     struct messagethread *argument = (struct messagethread*) args;
-     char pseudonyme[argument->taillepseudo];
-     char reponse[2];
+     char pseudonyme[argument.taillepseudo];
+     char reponse[280];
      int res;
      while(1){
-         printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument->taillepseudo);
-         fgets(pseudonyme, argument->taillepseudo + 1, stdin);
+         printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument.taillepseudo);
+         fgets(pseudonyme, argument.taillepseudo + 1, stdin);
 
          char * pos1 = strchr(pseudonyme,'\n');
          *pos1 ='\0';
 
-         res = send (argument->dSock, pseudonyme,strlen(pseudonyme) + 1,0);
+         res = send (argument.dSock, pseudonyme,strlen(pseudonyme) + 1,0);
          if (res<0){
              return -1;
          }
-         res = recv(argument->dSock, reponse,strlen(reponse) + 1,0);
+         res = recv(argument.dSock, reponse,sizeof(reponse),0);
+         printf("REPONSE : %s\n", reponse);
          if (res<=0){
              return-1;
          }
-         else if (strcmp(reponse, "-1")){
+         else if (strcmp(reponse, "-1") == 0){
              puts("Pseudo déjà pris par quelqu'un d'autre");
          }
          else{
@@ -234,7 +234,7 @@ int main (void){
         msgthr.taillepseudo = 12;
 
     /*Saisie du pseudo et envoie au Serveur*/
-    res = entrerpseudo((void*)&msgthr.taillepseudo);
+    res = entrerpseudo(msgthr);
     if (res<0){
         puts("Erreur de communication avec le serveur");
         close(dSock);
