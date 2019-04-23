@@ -10,16 +10,11 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-struct message{
-    char * pseudo;
-    char * msg;
-};
-
+/*Information à transmettre au thread*/
 struct messagethread{
     int dSock;
     int taillemsg;
     int taillepseudo;
-    struct message message;
 };
 
 
@@ -35,11 +30,15 @@ void vidermemoiretamponclavier(void){
 
 
 int connexion (int sock){
-    /* demande à l'utilisateur de rentrer l'addresse ip et le port du serveur
-    et se connecte au serveur
-    prend en entrée une socket en ipv4, de type TCP
-    renvoie 0 si tout s'est bien passé, et -1 si il y a eu un problème*/
-    char ip[INET_ADDRSTRLEN];/*Se connecte à l'adresse ip*/
+    /**
+     *demande à l'utilisateur de rentrer l'addresse ip et le port du serveur
+     *et se connecte au serveur
+     *prend en entrée une socket en ipv4, de type TCP
+     *renvoie 0 si tout s'est bien passé, et -1 si il y a eu un problème
+     */
+
+    /*Saisi de l'adresse IP du serveur*/
+    char ip[INET_ADDRSTRLEN];
     printf ("Veuillez entrer l'adresse IP du serveur:\n");
     fgets (ip,sizeof(ip),stdin);
     char * correction = strchr(ip,'\n');
@@ -47,12 +46,14 @@ int connexion (int sock){
 
     /*printf ("%s\n", ip);*/
 
+    /*Saisie du port du serveur*/
     int port;
     printf("Veuillez entrer le port du serveur:\n");
     scanf("%d", &port);
     vidermemoiretamponclavier();
     /*printf("%d\n",port);*/
 
+    /*Convertion de l'addresse IP en binaire*/
     struct sockaddr_in adServ;
     adServ.sin_family = AF_INET;
     adServ.sin_port = port;
@@ -62,6 +63,7 @@ int connexion (int sock){
         return -1;
     }
 
+    /*Connexion au serveur*/
     printf("Tentative de connexion\n");
     socklen_t lgA = sizeof(struct sockaddr_in);
     res = connect(sock,(struct sockaddr *) &adServ,lgA);
@@ -79,6 +81,12 @@ int connexion (int sock){
 
 
 void *recevoirmessage(void* args){
+    /**
+     *Fonction pour le thread
+     *Recois les messages en TCP du serveur et les affiche à l'utilisateur
+     *Si on recois le message "fin" ou
+     *si il y a une erreur de reception->sort de la boucle
+     */
     struct messagethread *argument = (struct messagethread*) args;
     int res, dSock;
     char msg[280];
@@ -105,6 +113,12 @@ void *recevoirmessage(void* args){
 
 
 void *envoyermessage(void* args){
+    /**
+     *Fonction pour le thread
+     *Saisi et envoie les messages en TCP au serveur
+     *Si on envoie le message "fin" ou
+     *si il y a une erreur d'envoie->sort de la boucle
+     */
     struct messagethread *argument = (struct messagethread*) args;
     int res;
     char msg [argument->taillemsg-1];
@@ -134,8 +148,9 @@ void *envoyermessage(void* args){
 
 int main (void){
 
-    /* connexion au serveur*/
+    /*Création de la socket*/
     int dSock = socket (PF_INET, SOCK_STREAM, 0);
+    /* connexion au serveur*/
     int res = connexion(dSock);
     if (res == -1){
         printf("Erreur: La connexion a échouée\n");
@@ -148,13 +163,13 @@ int main (void){
 
 
 
-
+    /*Instance des informations du thread*/
     struct messagethread msgthr;
         msgthr.dSock = dSock;
         msgthr.taillemsg = 280;
         msgthr.taillepseudo = 12;
 
-
+    /*Saisie du pseudo et envoie au Serveur*/
     char pseudonyme[msgthr.taillepseudo];
     printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",msgthr.taillepseudo);
     fgets(pseudonyme, msgthr.taillepseudo + 1, stdin);
@@ -164,6 +179,8 @@ int main (void){
 
     send (dSock, pseudonyme,strlen(pseudonyme) + 1,0);
 
+
+    /*Création des threads d'envoi et de reception*/
     pthread_t recepteur;
     pthread_create (&recepteur, NULL, recevoirmessage, (void *)&msgthr);
 
@@ -171,8 +188,10 @@ int main (void){
     pthread_t envoyeur;
     pthread_create (&envoyeur, NULL, envoyermessage, (void *)&msgthr);
 
+    /*Attente de l'extinction du thread*/
     pthread_join(envoyeur,NULL);
 
+    /*Fermeture de la connexion*/
     close(dSock);
 
     printf("Déconnexion\n");
