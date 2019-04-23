@@ -121,6 +121,9 @@ void *threadEnvoi(void * numCli) {
         /* Si le message reçu est "file" */
         } else if (strcmp(msg, "file") == 0) {
             /* Récupération du pseudo du client auquel le client veut envoyer le fichier */
+            bzero(msg, 280);
+            recv(dSC, msg, sizeof(msg), 0);
+            /* Check si le pseudo existe et envoi au second client l'adresse IP et le port */
             
 
         }
