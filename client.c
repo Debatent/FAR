@@ -79,32 +79,32 @@ int connexion (int sock){
 }
 
 
-int entrerpseudo(struct messagethread argument){
+int entrerpseudo(void* args){
     /**
      *Demande à l'utilisateur son pseudo, et le redemande si le pseudo est déjà pris
      *Prend en entrée un message thread
      *renvoie 0 si le pseudo a été validé, -1 en cas d'erreur
      */
-     char pseudonyme[argument.taillepseudo];
-     char reponse[280];
+     struct messagethread *argument = (struct messagethread*) args;
+     char pseudonyme[argument->taillepseudo];
+     char reponse[3q];
      int res;
      while(1){
-         printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument.taillepseudo);
-         fgets(pseudonyme, argument.taillepseudo + 1, stdin);
+         printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument->taillepseudo);
+         fgets(pseudonyme, argument->taillepseudo + 1, stdin);
 
          char * pos1 = strchr(pseudonyme,'\n');
          *pos1 ='\0';
 
-         res = send (argument.dSock, pseudonyme,strlen(pseudonyme) + 1,0);
+         res = send (argument->dSock, pseudonyme,strlen(pseudonyme) + 1,0);
          if (res<0){
              return -1;
          }
-         res = recv(argument.dSock, reponse,sizeof(reponse),0);
-         printf("REPONSE : %s\n", reponse);
+         res = recv(argument->dSock, reponse,strlen(reponse) + 1,0);
          if (res<=0){
              return-1;
          }
-         else if (strcmp(reponse, "-1") == 0){
+         else if (strcmp(reponse, "-1\0")){
              puts("Pseudo déjà pris par quelqu'un d'autre");
          }
          else{
@@ -120,7 +120,13 @@ void* envoyerdestinataire(void* args){
     /**
      *Demande et envoie le pseudo du recepteur
      */
+    struct messagethread *argument = (struct messagethread*) args;
+    char pseudo[argument->taillepseudo];
     printf("Entrez le pseudo du destinataire");
+    fgets(pseudonyme, argument->taillepseudo, stdin);
+    send (argument->dSock,pseudonyme, sizeof(pseudonyme),0 );
+
+
 }
 
 void* envoyerfichier(void* args){
@@ -234,7 +240,7 @@ int main (void){
         msgthr.taillepseudo = 12;
 
     /*Saisie du pseudo et envoie au Serveur*/
-    res = entrerpseudo(msgthr);
+    res = entrerpseudo((void*)&msgthr.taillepseudo);
     if (res<0){
         puts("Erreur de communication avec le serveur");
         close(dSock);
