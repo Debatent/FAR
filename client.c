@@ -17,6 +17,7 @@ struct messagethread{
     int taillepseudo;
 };
 
+char ip[INET_ADDRSTRLEN];
 
 
 void vidermemoiretamponclavier(void){
@@ -38,7 +39,6 @@ int connexion (int sock){
      */
 
     /*Saisi de l'adresse IP du serveur*/
-    char ip[INET_ADDRSTRLEN];
     printf ("Veuillez entrer l'adresse IP du serveur:\n");
     fgets (ip,sizeof(ip),stdin);
     char * correction = strchr(ip,'\n');
@@ -87,7 +87,7 @@ int entrerpseudo(void* args){
      */
      struct messagethread *argument = (struct messagethread*) args;
      char pseudonyme[argument->taillepseudo];
-     char reponse[3q];
+     char reponse[3];
      int res;
      while(1){
          printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument->taillepseudo);
@@ -122,10 +122,11 @@ void* envoyerdestinataire(void* args){
      */
     struct messagethread *argument = (struct messagethread*) args;
     char pseudo[argument->taillepseudo];
-    printf("Entrez le pseudo du destinataire");
-    fgets(pseudonyme, argument->taillepseudo, stdin);
-    send (argument->dSock,pseudonyme, sizeof(pseudonyme),0 );
+    printf("Entrez le pseudo du destinataire\n");
+    fgets(pseudo, argument->taillepseudo, stdin);
+    send (argument->dSock,pseudo, sizeof(pseudo),0 );
 
+    listen(dS, 10);
 
 }
 
@@ -135,6 +136,14 @@ void* envoyerfichier(void* args){
      *Demande à l'émetteur le nom du fichier
      *envoie le titre puis le contenu du fichier selectionné au recepteur
      */
+     struct messagethread *argument = (struct messagethread*) args;
+
+     dS = socket(PF_INET, SOCK_STREAM, 0);
+     struct sockaddr_in ad;
+     ad.sin_family = AF_INET;
+     ad.sin_addr.s_addr = INADDR_ANY;
+     ad.sin_port = 45000;
+     res = bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 }
 
 
@@ -143,6 +152,52 @@ void* recevoirfichier(void* args){
      *reçoit le titre puis le contenu du fichier qu'on place dans le repertoire
      *reception
      */
+     int dSock1 = socket (PF_INET, SOCK_STREAM, 0);
+
+     struct sockaddr_in adServ;
+     adServ.sin_family = AF_INET;
+     adServ.sin_port = 35000;
+     int res = inet_pton(AF_INET,ip, &(adServ.sin_addr));
+     if (res == 0){
+         printf("Erreur: L'adresse IP entrée n'est pas valide\n");
+         _exit();
+     }
+
+     /*Connexion au serveur*/
+     socklen_t lgA = sizeof(struct sockaddr_in);
+     res = connect(dSock1,(struct sockaddr *) &adServ,lgA);
+     if (res == -1){
+         printf("Erreur: Le serveur n'est pas accessible\n");
+         _exit();
+     }
+
+     /*Reception information emetteur*/
+     char ipemetteur[INET_ADDRSTRLEN];
+     int portemetteur;
+
+     recv(dSock1, ipemetteur, sizeof(ipemetteur),0);
+     recv(dSock1, portemetteur, sizeof(int),0);
+
+     close(dSock1);
+
+     adServ.sin_family = AF_INET;
+     adServ.sin_port = 35000;
+     int res = inet_pton(AF_INET,ip, &(adServ.sin_addr));
+     if (res == 0){
+         printf("Erreur: L'adresse IP entrée n'est pas valide\n");
+         _exit();
+     }
+
+     /*Connexion au serveur*/
+     socklen_t lgA = sizeof(struct sockaddr_in);
+     res = connect(dSock1,(struct sockaddr *) &adServ,lgA);
+     if (res == -1){
+         printf("Erreur: Le serveur n'est pas accessible\n");
+         _exit();
+     }
+
+
+
 }
 
 
