@@ -10,14 +10,46 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-/*Information à transmettre au thread*/
+
+//Bibliothèque servant à la sélection fichier
+
+#include <limits.h>
+#include <dirent.h>
+
+
+//Information à transmettre aux threads de message*
 struct messagethread{
     int dSock;
     int taillemsg;
     int taillepseudo;
 };
 
+//Information à transmettre aux threads de fichier
+struct fichierthread{
+    int SockServeurFichier;
+    int SockEmetteur;
+    int SockRecepteur;
+    char ip[INET_ADDRSTRLEN];
+    int port;
+    int tailletransfert;
+    char nomfichier[1023];
+};
+
+//IP du serveur
 char ip[INET_ADDRSTRLEN];
+
+
+//Envoie les signaux pour activer l'accès au clavier des différents threads
+pthread_cond_t cond_activation_tranfert_fichier , cond_activation_message;
+
+
+
+//Mutex servant à gérer l'accès au clavier
+pthread_mutex_t clavier = PTHREAD_MUTEX_INITIALIZER;
+
+
+
+
 
 
 void vidermemoiretamponclavier(void){
@@ -25,6 +57,16 @@ void vidermemoiretamponclavier(void){
     char c;
     while( (c=getchar())!='\n' && c!=EOF);
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -38,22 +80,22 @@ int connexion (int sock){
      *renvoie 0 si tout s'est bien passé, et -1 si il y a eu un problème
      */
 
-    /*Saisi de l'adresse IP du serveur*/
+    //Saisi de l'adresse IP du serveur
     printf ("Veuillez entrer l'adresse IP du serveur:\n");
     fgets (ip,sizeof(ip),stdin);
     char * correction = strchr(ip,'\n');
     *correction ='\0';
 
-    /*printf ("%s\n", ip);*/
+    //printf ("%s\n", ip);
 
-    /*Saisie du port du serveur*/
+    //Saisie du port du serveur*
     int port;
     printf("Veuillez entrer le port du serveur:\n");
     scanf("%d", &port);
     vidermemoiretamponclavier();
-    /*printf("%d\n",port);*/
+    //printf("%d\n",port);
 
-    /*Convertion de l'addresse IP en binaire*/
+    //Convertion de l'addresse IP en binaire
     struct sockaddr_in adServ;
     adServ.sin_family = AF_INET;
     adServ.sin_port = port;
@@ -63,7 +105,7 @@ int connexion (int sock){
         return -1;
     }
 
-    /*Connexion au serveur*/
+    //Connexion au serveur
     printf("Tentative de connexion\n");
     socklen_t lgA = sizeof(struct sockaddr_in);
     res = connect(sock,(struct sockaddr *) &adServ,lgA);
@@ -79,6 +121,16 @@ int connexion (int sock){
 }
 
 
+
+
+
+
+
+
+
+
+
+
 int entrerpseudo(void* args){
     /**
      *Demande à l'utilisateur son pseudo, et le redemande si le pseudo est déjà pris
@@ -89,6 +141,7 @@ int entrerpseudo(void* args){
      char pseudonyme[argument->taillepseudo];
      char reponse[3];
      int res;
+     //On fait une boucle tant que le pseudo n'a pas déjà était pris par quelqu'un d'autre
      while(1){
          printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument->taillepseudo);
          fgets(pseudonyme, argument->taillepseudo + 1, stdin);
@@ -116,89 +169,508 @@ int entrerpseudo(void* args){
 }
 
 
-void* envoyerdestinataire(void* args){
+
+
+
+
+
+
+
+
+
+
+
+
+int envoyerdestinataire(struct fichierthread args){
     /**
      *Demande et envoie le pseudo du recepteur
      */
-    struct messagethread *argument = (struct messagethread*) args;
-    char pseudo[argument->taillepseudo];
+    int taillepseudo = 280;
+    char pseudo[taillepseudo];
     printf("Entrez le pseudo du destinataire\n");
-    fgets(pseudo, argument->taillepseudo, stdin);
-    send (argument->dSock,pseudo, sizeof(pseudo),0 );
+    fgets(pseudo, taillepseudo, stdin);
+    send (args.SockServeurFichier,pseudo, sizeof(pseudo),0);
+
+    return 0;
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int get_last_tty() {
+  FILE *fp;
+  char path[1035];
+  fp = popen("/bin/ls /dev/pts", "r");
+  if (fp == NULL) {
+    printf("Impossible d'exécuter la commande\n" );
+    exit(1);
+  }
+  int i = INT_MIN;
+  while (fgets(path, sizeof(path)-1, fp) != NULL) {
+    if(strcmp(path,"ptmx")!=0){
+      int tty = atoi(path);
+      if(tty > i) i = tty;
+    }
+  }
+
+  pclose(fp);
+  return i;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+FILE* new_tty() {
+  pthread_mutex_t the_mutex;
+  pthread_mutex_init(&the_mutex,0);
+  pthread_mutex_lock(&the_mutex);
+  system("gnome-terminal"); sleep(1);
+  char *tty_name = ttyname(STDIN_FILENO);
+  int ltty = get_last_tty();
+  char str[2];
+  sprintf(str,"%d",ltty);
+  tty_name[strlen(tty_name)-1] = '\0';
+  strcat(tty_name,str);
+  FILE *fp = fopen(tty_name,"wb+");
+  pthread_mutex_unlock(&the_mutex);
+  pthread_mutex_destroy(&the_mutex);
+  return fp;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int choisirfichier(char nomdufichier[1023]){
+    /**
+     *demande le fichier
+     *On appuie sur q pour arreter le choix
+     *renvoie 0 si on peut l'ouvrir et -1 si on a appuyé sur q
+     */
+     FILE* fp1 = new_tty();
+     fprintf(fp1,"%s\n","Ce terminal sera utilisé uniquement pour l'affichage");
+
+     // Demander à l'utilisateur quel fichier afficher
+     DIR *dp;
+     struct dirent *ep;
+     char fichier[2000] = "./Envoie";
+
+     dp = opendir (fichier);
+     if (dp != NULL) {
+       fprintf(fp1,"Voilà la liste de fichiers du répertoire 'Envoie' :\n");
+       while ((ep = readdir (dp))) {
+         if(strcmp(ep->d_name,".")!=0 && strcmp(ep->d_name,"..")!=0)
+       fprintf(fp1,"%s\n",ep->d_name);
+       }
+       (void) closedir (dp);
+     }
+     else {
+       perror ("Ne peux pas ouvrir le répertoire");
+     }
+
+     //On fait une boucle tant que l'utilisateur n'a pas entré le bon fichier ou tapé "q"
+     bool choixcorrecte = false;
+     char fileName[1023];
+     //Nom complet du chemin jusqu'au fichier
+     char cheminfinal[2000]="";
+     while(!choixcorrecte){
+         strcat(cheminfinal,fichier);
+         printf("Indiquez le nom du fichier : ");
+         fgets(fileName,sizeof(fileName),stdin);
+         fileName[strlen(fileName)-1]='\0';
+         strcat(cheminfinal,fileName);
+
+         FILE *fps = fopen(cheminfinal, "r");
+
+         //on a rentré q: sortie de cette fonction
+         if (strcmp(fileName,"q") == 0){
+             puts("Sortie");
+             return -1;
+         }
+         //Nom de fichier incorrecte
+         else if (fps == NULL){
+             printf("Ne peux pas ouvrir le fichier suivant : %s",fileName);
+             strcpy(cheminfinal,"");
+         }
+         //Nom de fichier correcte
+         else {
+             puts("fichier correcte");
+             choixcorrecte = true;
+             fclose(fps);
+         }
+     }
+     //change la valeur en parametre
+     strcpy(nomdufichier,fileName);
+     return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void* envoiefichier(void* args){
+    /**
+     *Envoie le nom du fichier puis le contenu du fichier par packet de 1000
+     */
+    struct fichierthread *argument = (struct fichierthread*) args;
+    char str[argument -> tailletransfert];
+    char fichier[2000] = "./Envoie/"
+    strcat(fichier,argument -> nomfichier);
+
+    FILE *fps = fopen( "r");
+    send(argument->SockRecepteur, argument->nomfichier, strlen(argument->nomfichier),0);
+
+    // Lire et envoyer le contenu du fichier
+    while (fgets(str, 1000, fps) != NULL) {
+        send(argument->SockRecepteur, str, strlen(str),0);
+    }
+    close(argument->SockRecepteur);
+    pthread_exit(0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void* recoisfichier(void* args){
+    /**
+     *créée le fichier dans le répertoire Reception et le remplie
+     */
+    struct fichierthread *argument = (struct fichierthread*) args;
+    //Nom complet du chemin
+    char fichier[2000] = "./Reception/";
+    recv(argument ->SockEmetteur, argument -> nomfichier, sizeof(argument -> nomfichier),0);
+    strcat(fichier,argument -> nomfichier);
+    //On ouvre/crée le ficjier en mode ajout à la fin
+    FILE *fps = fopen(fichier, "a");
+    char element[argument -> tailletransfert];
+    //Tant que l'emetteur n'a pas coupé la communication, on ajoute des elements dans le fichier
+    while ((recv(argument ->SockEmetteur,element, sizeof(element),0)>0)){
+        fputs(element,fps);
+    }
+
+    fclose(fps);
+    printf("Fichier %s reçus", argument->nomfichier);
+
+    close(argument -> SockEmetteur);
+    pthread_exit(0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void* gestionenvoyerfichier(void* args){
+    /**
+    *affiche les nom des fichiers du répertoire files
+    *Demande à l'émetteur le nom du fichier
+    *envoie le titre puis le contenu du fichier selectionné au recepteur
+    */
+    struct fichierthread *argument = (struct fichierthread*) args;
+
+    int dS = socket(PF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in ad;
+    ad.sin_family = AF_INET;
+    ad.sin_addr.s_addr = INADDR_ANY;
+    ad.sin_port = 45000;
+    bind(dS, (struct sockaddr *)&ad, sizeof(ad));
+
 
     listen(dS, 10);
+    struct sockaddr_in aC;
+    socklen_t lg = sizeof(struct sockaddr_in);
+
+    argument -> SockEmetteur = dS;
+    int res;
+    while(true){
+        //on attend que l'utilisateur tape file pour entrer ici
+        pthread_cond_wait(&cond_activation_tranfert_fichier,&clavier);
+        pthread_mutex_lock(&clavier);
+        envoyerdestinataire(*argument);
+
+        char fileName[1023];
+        res = choisirfichier(fileName);
+        pthread_mutex_unlock(&clavier);
+        pthread_cond_signal(&cond_activation_message);
+
+        if (res == 0){
+            strcpy(argument->nomfichier, fileName);
+            argument->SockRecepteur = accept(dS, (struct sockaddr *)&aC, &lg);
+            //On créé un thread pour envoyer le fichier à la personne qui vient de se connecter
+            pthread_t tid;
+            pthread_create(&tid, NULL, envoiefichier,(void*) argument);
+        }
+
+    }
+
+    pthread_exit(0);
+
 
 }
 
-void* envoyerfichier(void* args){
+
+
+
+
+
+
+
+
+
+
+
+
+
+void* gestionrecevoirfichier(void* args){
     /**
-     *affiche les nom des fichiers du répertoire files
-     *Demande à l'émetteur le nom du fichier
-     *envoie le titre puis le contenu du fichier selectionné au recepteur
-     */
-     struct messagethread *argument = (struct messagethread*) args;
+    *Recois les informations de l'émetteur via le serveur et se connecte directement
+    *à lui
+    *Crée le thread dédié à la reception du fichier
+    */
+    struct fichierthread *argument = (struct fichierthread*) args;
 
-     dS = socket(PF_INET, SOCK_STREAM, 0);
-     struct sockaddr_in ad;
-     ad.sin_family = AF_INET;
-     ad.sin_addr.s_addr = INADDR_ANY;
-     ad.sin_port = 45000;
-     res = bind(dS, (struct sockaddr *)&ad, sizeof(ad));
+    int dSockrecepteur = socket (PF_INET, SOCK_STREAM, 0);
+
+    //Reception information emetteur
+
+    while(true){
+        // Le serveur envoie d'abord l'IP de l'emetteur
+        recv(argument->SockServeurFichier, argument -> ip, sizeof( argument -> ip),0);
+        //Le serveur envoie ensuite le port de l'emetteur
+        recv(argument->SockServeurFichier, &argument -> port, sizeof(int),0);
+
+        //On configure le socket du recepteur pour qu'il puisse se connecter à l'emetteur
+        struct sockaddr_in adEmet;
+        adEmet.sin_family = AF_INET;
+        adEmet.sin_port = argument -> port;
+        int res = inet_pton(AF_INET, argument -> ip, &(adEmet.sin_addr));
+        if (res == 0){
+            printf("Erreur: L'adresse IP entrée n'est pas valide\n");
+        }
+
+        //Connexion à l'emetteur
+        socklen_t lgA = sizeof(struct sockaddr_in);
+        res = connect(dSockrecepteur,(struct sockaddr *) &adEmet,lgA);
+        if (res == -1){
+            printf("Erreur: L'émetteur n'est pas accessible\n");
+        }
+        argument->SockRecepteur = dSockrecepteur;
+        //On crée le thread dédié à la reception de ce fichier
+        pthread_t tid;
+        pthread_create( &tid, NULL, recoisfichier,(void*) argument);
+    }
+    pthread_exit(0);
 }
 
 
-void* recevoirfichier(void* args){
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void* gestionfichier(void* args){
     /**
-     *reçoit le titre puis le contenu du fichier qu'on place dans le repertoire
-     *reception
+     *Se connecte au serveur, et gère les transfert de fichiers
+     *(selectionner le fichier à envoyer, le nom du destinatiare, transfert du fichier, reception du fichier)
      */
-     int dSock1 = socket (PF_INET, SOCK_STREAM, 0);
 
-     struct sockaddr_in adServ;
-     adServ.sin_family = AF_INET;
-     adServ.sin_port = 35000;
-     int res = inet_pton(AF_INET,ip, &(adServ.sin_addr));
-     if (res == 0){
-         printf("Erreur: L'adresse IP entrée n'est pas valide\n");
-         _exit();
-     }
+    int dSockserveur = socket (PF_INET, SOCK_STREAM, 0);
 
-     /*Connexion au serveur*/
-     socklen_t lgA = sizeof(struct sockaddr_in);
-     res = connect(dSock1,(struct sockaddr *) &adServ,lgA);
-     if (res == -1){
-         printf("Erreur: Le serveur n'est pas accessible\n");
-         _exit();
-     }
+    struct sockaddr_in adServ;
+    adServ.sin_family = AF_INET;
+    adServ.sin_port = 35000;
+    int res = inet_pton(AF_INET,ip, &(adServ.sin_addr));
+    if (res == 0){
+        printf("Erreur: L'adresse IP entrée n'est pas valide\n");
+        _exit(0);
+    }
 
-     /*Reception information emetteur*/
-     char ipemetteur[INET_ADDRSTRLEN];
-     int portemetteur;
+    //Connexion au serveur de fichier
+    socklen_t lgA = sizeof(struct sockaddr_in);
+    res = connect(dSockserveur,(struct sockaddr *) &adServ,lgA);
+    if (res == -1){
+        printf("Erreur: Le serveur n'est pas accessible\n");
+        _exit(0);
+    }
 
-     recv(dSock1, ipemetteur, sizeof(ipemetteur),0);
-     recv(dSock1, portemetteur, sizeof(int),0);
-
-     close(dSock1);
-
-     adServ.sin_family = AF_INET;
-     adServ.sin_port = 35000;
-     int res = inet_pton(AF_INET,ip, &(adServ.sin_addr));
-     if (res == 0){
-         printf("Erreur: L'adresse IP entrée n'est pas valide\n");
-         _exit();
-     }
-
-     /*Connexion au serveur*/
-     socklen_t lgA = sizeof(struct sockaddr_in);
-     res = connect(dSock1,(struct sockaddr *) &adServ,lgA);
-     if (res == -1){
-         printf("Erreur: Le serveur n'est pas accessible\n");
-         _exit();
-     }
+    struct fichierthread fchthr;
+        fchthr.SockServeurFichier = dSockserveur;
+        fchthr.tailletransfert = 1000;
 
 
+    pthread_t gestionemission;
+    pthread_t gestionreception;
 
+    pthread_create(&gestionemission, NULL, gestionenvoyerfichier, (void*) &fchthr);
+
+    pthread_create(&gestionreception, NULL, gestionrecevoirfichier, (void*) &fchthr);
+
+    pthread_join(gestionemission, NULL);
+
+    pthread_join(gestionreception, NULL);
+
+    pthread_exit(0);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void *envoyermessage(void* args){
+    /**
+     *Fonction pour le thread
+     *Saisi et envoie les messages en TCP au serveur
+     *Si on envoie le message "fin" ou
+     *si il y a une erreur d'envoie->sort de la boucle
+     */
+    struct messagethread *argument = (struct messagethread*) args;
+    int res;
+    char msg [argument->taillemsg-1];
+    int dSock = argument->dSock;
+    pthread_mutex_lock(&clavier);
+    while(1){
+        fgets(msg, argument->taillemsg-1, stdin);
+
+        char * pos1 = strchr(msg,'\n');
+        *pos1 ='\0';
+
+        res = send(dSock,msg, sizeof(msg)+1,0);
+        if (res == -1){
+            printf("Erreur: Le message n'a pas été envoyé\n");
+            break;
+        }
+        if (strcmp(msg,"fin")==0){
+            printf("Fin de l'envoi des messages\n");
+            break;
+        }
+        else if (strcmp(msg,"file")){
+            pthread_mutex_unlock(&clavier);
+            pthread_cond_signal(&cond_activation_tranfert_fichier);
+            pthread_cond_wait(&cond_activation_message,&clavier);
+            pthread_mutex_lock(&clavier);
+        }
+    }
+    pthread_exit(0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -230,42 +702,22 @@ void *recevoirmessage(void* args){
         printf("%s\n", msg);
         bzero(msg, 280);
     }
-    return NULL;
+    pthread_exit(0);
 }
 
 
-void *envoyermessage(void* args){
-    /**
-     *Fonction pour le thread
-     *Saisi et envoie les messages en TCP au serveur
-     *Si on envoie le message "fin" ou
-     *si il y a une erreur d'envoie->sort de la boucle
-     */
-    struct messagethread *argument = (struct messagethread*) args;
-    int res;
-    char msg [argument->taillemsg-1];
-    int dSock = argument->dSock;
-    while(1){
-        fgets(msg, argument->taillemsg-1, stdin);
 
-        char * pos1 = strchr(msg,'\n');
-        *pos1 ='\0';
 
-        res = send(dSock,msg, sizeof(msg)+1,0);
-        if (res == -1){
-            printf("Erreur: Le message n'a pas été envoyé\n");
-            break;
-        }
-        if (strcmp(msg,"fin")==0){
-            printf("Fin de l'envoi des messages\n");
-            break;
-        }
-        else if (strcmp(msg,"file")){
 
-        }
-    }
-    return NULL;
-}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -303,6 +755,12 @@ int main (void){
         return 0;
     }
 
+    /*Initialisation des condition(pour la synchronisation)*/
+    pthread_cond_init(&cond_activation_tranfert_fichier,0);
+
+    pthread_cond_init(&cond_activation_message,0);
+
+
     /*Création des threads d'envoi et de reception*/
     pthread_t recepteur;
     pthread_create (&recepteur, NULL, recevoirmessage, (void *)&msgthr);
@@ -310,6 +768,10 @@ int main (void){
     printf("Tapez les messages en %d caractères:\n", msgthr.taillemsg);
     pthread_t envoyeur;
     pthread_create (&envoyeur, NULL, envoyermessage, (void *)&msgthr);
+
+
+    pthread_t fichier;
+    pthread_create(&fichier, NULL, gestionfichier,&msgthr);
 
     /*Attente de l'extinction du thread*/
     pthread_join(envoyeur,NULL);
