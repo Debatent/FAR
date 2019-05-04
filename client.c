@@ -358,10 +358,10 @@ void* envoiefichier(void* args){
      */
     struct fichierthread *argument = (struct fichierthread*) args;
     char str[argument -> tailletransfert];
-    char fichier[2000] = "./Envoie/"
+    char fichier[2000] = "./Envoie";
     strcat(fichier,argument -> nomfichier);
 
-    FILE *fps = fopen( "r");
+    FILE *fps = fopen(fichier, "r");
     send(argument->SockRecepteur, argument->nomfichier, strlen(argument->nomfichier),0);
 
     // Lire et envoyer le contenu du fichier
