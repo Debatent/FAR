@@ -156,7 +156,7 @@ int entrerpseudo(struct messagethread argument){
          if (res<=0){
              return-1;
          }
-         else if ((strcmp(reponse, "-1\0")==0)){
+         else if ((strcmp(reponse, "-1")==0)){
              puts("Pseudo déjà pris par quelqu'un d'autre");
          }
          else{
@@ -367,6 +367,7 @@ void* envoiefichier(void* args){
     while (fgets(str, 1000, fps) != NULL) {
         send(argument->SockRecepteur, str, strlen(str),0);
     }
+    printf("Fichier %s envoyé\n",argument->nomfichier);
     close(argument->SockRecepteur);
     pthread_exit(0);
 }
@@ -571,7 +572,7 @@ void* gestionfichier(void* args){
     socklen_t lgA = sizeof(struct sockaddr_in);
     res = connect(dSockserveur,(struct sockaddr *) &adServ,lgA);
     if (res == -1){
-        printf("Erreur: Le serveur n'est pas accessible\n");
+        printf("Erreur: Le serveur de fichier n'est pas accessible\n");
         _exit(0);
     }
 
