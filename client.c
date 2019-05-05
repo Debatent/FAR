@@ -145,6 +145,9 @@ int entrerpseudo(struct messagethread argument){
          printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument.taillepseudo);
          fgets(pseudonyme, argument.taillepseudo, stdin);
 
+         char * pos1 = strchr(pseudonyme,'\n');
+         *pos1 ='\0';
+
          res = send (argument.dSock, pseudonyme,strlen(pseudonyme) + 1,0);
          if (res<0){
              return -1;
@@ -439,7 +442,7 @@ void* gestionenvoyerfichier(void* args){
     struct sockaddr_in ad;
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY;
-    ad.sin_port = 45000;
+    ad.sin_port = 40000;
     bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 
     printf("BIND REUSSIT\n");
@@ -468,6 +471,7 @@ void* gestionenvoyerfichier(void* args){
 
         if (res == 0){
             strcpy(argument->nomfichier, fileName);
+            printf("En attente de la connexion\n");
             argument->SockRecepteur = accept(dS, (struct sockaddr *)&aC, &lg);
             //On créé un thread pour envoyer le fichier à la personne qui vient de se connecter
             pthread_t tid;
@@ -503,20 +507,24 @@ void* gestionrecevoirfichier(void* args){
     struct fichierthread *argument = (struct fichierthread*) args;
 
     int dSockrecepteur = socket (PF_INET, SOCK_STREAM, 0);
+    char port[280];
 
     //Reception information emetteur
 
     while(true){
         // Le serveur envoie d'abord l'IP de l'emetteur
         recv(argument->SockServeurFichier, argument -> ip, sizeof( argument -> ip),0);
+        printf("IP : %s\n", argument->ip);
         //Le serveur envoie ensuite le port de l'emetteur
-        recv(argument->SockServeurFichier, &argument -> port, sizeof(int),0);
+        recv(argument->SockServeurFichier, port, sizeof(port),0);
+        printf("PORT : %s\n", port);
+        argument->port = 40000;
 
         //On configure le socket du recepteur pour qu'il puisse se connecter à l'emetteur
         struct sockaddr_in adEmet;
         adEmet.sin_family = AF_INET;
         adEmet.sin_port = argument -> port;
-        int res = inet_pton(AF_INET, argument -> ip, &(adEmet.sin_addr));
+        int res = inet_pton(AF_INET, "127.0.0.1", &(adEmet.sin_addr));
         if (res == 0){
             printf("Erreur: L'adresse IP entrée n'est pas valide\n");
         }

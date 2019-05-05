@@ -111,20 +111,23 @@ void *threadEnvoiFichier(void *numEmetteur)
     printf("En attente du message de l'émetteur (pseudo) \n");
     recv(dSC, msg, sizeof(msg), 0);
     printf("PSEUDO : %s\n", msg);
+    char * pos1 = strchr(msg,'\n');
+    *pos1 ='\0';
+    
     /* Check si le pseudo existe et envoie au second client l'adresse IP et le port */
     int sock = getIdByPseudo(msg);
     printf("RETOUR DE LA FONCTION : %d\n", sock);
     if (sock != -1)
     {
         //ENVOI AU CLIENT RECEPTEUR
-        //Envoi du port
-        sprintf(msg, "%d", (int)ntohs(tabSockets[i].aC2.sin_port));
-        printf("PORT : %s\n", msg);
-        send(sock, msg, sizeof(msg), 0);
-        bzero(msg, 280);
         //Envoi de l'ip
         strcpy(msg, inet_ntoa(tabSockets[i].aC2.sin_addr));
         printf("IP : %s\n", msg);
+        send(sock, msg, sizeof(msg), 0);
+        bzero(msg, 280);
+        //Envoi du port
+        sprintf(msg, "%d", (int)ntohs(tabSockets[i].aC2.sin_port));
+        printf("PORT : %s\n", msg);
         send(sock, msg, sizeof(msg), 0);
         bzero(msg, 280);
 
