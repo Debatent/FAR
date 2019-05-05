@@ -188,6 +188,9 @@ int envoyerdestinataire(struct fichierthread args){
     char pseudo[taillepseudo];
     printf("Entrez le pseudo du destinataire\n");
     fgets(pseudo, taillepseudo, stdin);
+    char * pos1 = strchr(pseudo,'\n');
+    *pos1 ='\0';
+
     send (args.SockServeurFichier,pseudo, sizeof(pseudo),0);
 
     return 0;
@@ -284,11 +287,11 @@ int choisirfichier(char nomdufichier[1023]){
      // Demander à l'utilisateur quel fichier afficher
      DIR *dp;
      struct dirent *ep;
-     char fichier[2000] = "./Envoie";
+     char fichier[2000] = "./Envoi";
 
      dp = opendir (fichier);
      if (dp != NULL) {
-       fprintf(fp1,"Voilà la liste de fichiers du répertoire 'Envoie' :\n");
+       fprintf(fp1,"Voilà la liste de fichiers du répertoire 'Envoi' :\n");
        while ((ep = readdir (dp))) {
          if(strcmp(ep->d_name,".")!=0 && strcmp(ep->d_name,"..")!=0)
        fprintf(fp1,"%s\n",ep->d_name);
@@ -301,6 +304,7 @@ int choisirfichier(char nomdufichier[1023]){
 
      //On fait une boucle tant que l'utilisateur n'a pas entré le bon fichier ou tapé "q"
      bool choixcorrecte = false;
+     strcat(fichier,"/");
      char fileName[1023];
      //Nom complet du chemin jusqu'au fichier
      char cheminfinal[2000]="";
@@ -357,7 +361,7 @@ void* envoiefichier(void* args){
      */
     struct fichierthread *argument = (struct fichierthread*) args;
     char str[argument -> tailletransfert];
-    char fichier[2000] = "./Envoie";
+    char fichier[2000] = "./Envoi/";
     strcat(fichier,argument -> nomfichier);
 
     FILE *fps = fopen(fichier, "r");

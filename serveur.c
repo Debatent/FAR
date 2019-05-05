@@ -111,8 +111,6 @@ void *threadEnvoiFichier(void *numEmetteur)
     printf("En attente du message de l'émetteur (pseudo) \n");
     recv(dSC, msg, sizeof(msg), 0);
     printf("PSEUDO : %s\n", msg);
-    char * pos1 = strchr(msg,'\n');
-    *pos1 ='\0';
     
     /* Check si le pseudo existe et envoie au second client l'adresse IP et le port */
     int sock = getIdByPseudo(msg);
