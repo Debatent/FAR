@@ -49,12 +49,20 @@ int getNbConnectes() {
     }
     return count;
 }
-
+// Check si le pseudo existe
 int getPseudo(char * pseudo) {
-    printf("%s\n", pseudo);
     for (int i = 0; i < TAILLEMAX-1; i++) {
         if (strcmp(tabSockets[i].pseudo, pseudo) == 0) {
             return 0;
+        }
+    }
+    return -1;
+}
+//Check si le pseudo existe et renvoie le numéro de socket correspondant
+int getIdByPseudo(char * pseudo) {
+    for (int i = 0; i < TAILLEMAX-1; i++) {
+        if (strcmp(tabSockets[i].pseudo, pseudo) == 0) {
+            return tabSockets[i].dSC;
         }
     }
     return -1;
@@ -83,6 +91,7 @@ void *threadEnvoi(void * numCli) {
             strcpy(tabSockets[i].pseudo, pseudo);
             fin = 1;
         }
+        bzero(msg, 280);
     }
 
     printf("Pseudo : %s\n", pseudo);
@@ -99,15 +108,17 @@ void *threadEnvoi(void * numCli) {
         }
         /* Si le message reçu est "fin" */
         if (strcmp(msg,"fin") == 0){
+            printf("MESSAGE FIN RECU\n");
             /* Formattage du message à envoyer */
             strcpy(messageComplet, pseudo);
-            strcat(messageComplet, " a quitté la discussion\0");
+            strcat(messageComplet, " a quitté la discussion\0\n");
             /* Envoi à tous les clients */
             for (int i =0; i < TAILLEMAX-1; i++) {
                 if (tabSockets[i].dSC != 0) {
                     /* Suppression du socket du client ayant émit "fin" dans le tableau */
                     if (tabSockets[i].dSC == dSC) {
                         tabSockets[i].dSC = 0;
+                        strcpy(tabSockets[i].pseudo, "");
                     } else {
                         printf("ENVOI AU CLIENT %d\n", i);
                         res = send(tabSockets[i].dSC, messageComplet, sizeof(messageComplet), 0);
@@ -123,27 +134,45 @@ void *threadEnvoi(void * numCli) {
             /* Récupération du pseudo du client auquel le client veut envoyer le fichier */
             bzero(msg, 280);
             recv(dSC, msg, sizeof(msg), 0);
-            /* Check si le pseudo existe et envoi au second client l'adresse IP et le port */
-            
+            /* Check si le pseudo existe et envoie au second client l'adresse IP et le port */
+            int sock = getIdByPseudo(msg);
+            if (sock != -1) {
+                strcpy(msg, pseudo);
+                strcat(msg, " souhaite vous envoyer un fichier\n");
+                send(sock, msg, sizeof(msg), 0);
+                strcpy(msg, "file");
+                send(sock, msg, sizeof(msg), 0);*
+                /* Conversion à faire */
+                //Envoi du port
+                strcpy(msg, ntohs(tabSockets[i].aC.sin_port));
+                send(sock, msg, sizeof(msg), 0);
+                //Envoi de l'ip
+                strcpy(msg, inet_ntoa(tabSockets[i].aC.sin_addr));
+                send(sock, msg, sizeof(msg), 0);
 
-        }
-        /* Formattage du message à envoyer */
-        strcpy(messageComplet, pseudo);
-        strcat(messageComplet, " : ");
-        strcat(messageComplet, msg);
-        printf("%s\n", messageComplet);
-        /* Envoi à tous les clients */
-        for (int i = 0; i < TAILLEMAX-1; i++) {
-            if (tabSockets[i].dSC != 0 && tabSockets[i].dSC != dSC) {
-                printf("ENVOI AU CLIENT %d\n", tabSockets[i].dSC);
-                res = send(tabSockets[i].dSC, messageComplet, sizeof(messageComplet), 0);
-                if (res == 0) {
-                    tabSockets[i].dSC = 0;
+            } else {
+                strcpy(msg, "Ce pseudo n'est pas connecté, annulation du transfert\n");
+                send(dSC, msg, sizeof(msg), 0);
+            }
+        } else {
+            /* Formattage du message à envoyer */
+            strcpy(messageComplet, pseudo);
+            strcat(messageComplet, " : ");
+            strcat(messageComplet, msg);
+            printf("%s\n", messageComplet);
+            /* Envoi à tous les clients */
+            for (int i = 0; i < TAILLEMAX-1; i++) {
+                if (tabSockets[i].dSC != 0 && tabSockets[i].dSC != dSC) {
+                    printf("ENVOI AU CLIENT %d\n", tabSockets[i].dSC);
+                    res = send(tabSockets[i].dSC, messageComplet, sizeof(messageComplet), 0);
+                    if (res == 0) {
+                        tabSockets[i].dSC = 0;
+                    }
                 }
             }
+            bzero(msg, 280);
+            bzero(messageComplet, 280);
         }
-        bzero(msg, 280);
-        bzero(messageComplet, 280);
 
     }
     return NULL;
