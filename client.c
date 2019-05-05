@@ -145,9 +145,6 @@ int entrerpseudo(struct messagethread argument){
          printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument.taillepseudo);
          fgets(pseudonyme, argument.taillepseudo, stdin);
 
-         char * pos1 = strchr(pseudonyme,'\n');
-         *pos1 ='\0';
-
          res = send (argument.dSock, pseudonyme,strlen(pseudonyme) + 1,0);
          if (res<0){
              return -1;
@@ -458,8 +455,11 @@ void* gestionenvoyerfichier(void* args){
         //on attend que l'utilisateur tape file pour entrer ici
         printf("EN attente de file\n");
         pthread_cond_wait(&cond_activation_tranfert_fichier,&clavier);
-        pthread_mutex_lock(&clavier);
+        //pthread_mutex_lock(&clavier);
+        printf("FILE RECU\n");
         envoyerdestinataire(*argument);
+
+        printf("Pseudo envoyé\n");
 
         char fileName[1023];
         res = choisirfichier(fileName);
@@ -653,9 +653,13 @@ void *envoyermessage(void* args){
             break;
         }
         else if (strcmp(msg,"file")==0){
+            printf("Entrée ici\n");
             pthread_mutex_unlock(&clavier);
+            printf("Entrée ici 2\n");
             pthread_cond_signal(&cond_activation_tranfert_fichier);
+            printf("Entrée ici 3\n");
             pthread_cond_wait(&cond_activation_message,&clavier);
+            printf("Entrée ici 4\n");
             pthread_mutex_lock(&clavier);
         }
     }

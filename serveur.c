@@ -76,7 +76,8 @@ int getIdByPseudo(char *pseudo)
     {
         if (strcmp(tabSockets[i].pseudo, pseudo) == 0)
         {
-            return tabSockets[i].dSC;
+            printf("Pseudo reconnu\n");
+            return tabSockets[i].dSC2;
         }
     }
     return -1;
@@ -88,7 +89,6 @@ int getPosBySocket(int sock)
     printf("LA SOCKET EN PARAM %d\n", sock);
     for (int i = 0; i < TAILLEMAX - 1; i++)
     {
-        printf("SOKCET NUM %d\n", tabSockets[i].dSC);
         if (tabSockets[i].dSC == sock)
         {
             return i;
@@ -110,26 +110,20 @@ void *threadEnvoiFichier(void *numEmetteur)
     bzero(msg, 280);
     printf("En attente du message de l'émetteur (pseudo) \n");
     recv(dSC, msg, sizeof(msg), 0);
+    printf("PSEUDO : %s\n", msg);
     /* Check si le pseudo existe et envoie au second client l'adresse IP et le port */
     int sock = getIdByPseudo(msg);
     printf("RETOUR DE LA FONCTION : %d\n", sock);
     if (sock != -1)
     {
-        strcpy(msg, pseudo);
-        strcat(msg, " souhaite vous envoyer un fichier\n");
-        send(sock, msg, sizeof(msg), 0);
-        bzero(msg, 280);
-        strcpy(msg, "ile");
-        send(sock, msg, sizeof(msg), 0);
-        bzero(msg, 280);
         //ENVOI AU CLIENT RECEPTEUR
         //Envoi du port
-        sprintf(msg, "%d", (int)ntohs(tabSockets[i].aC.sin_port));
+        sprintf(msg, "%d", (int)ntohs(tabSockets[i].aC2.sin_port));
         printf("PORT : %s\n", msg);
         send(sock, msg, sizeof(msg), 0);
         bzero(msg, 280);
         //Envoi de l'ip
-        strcpy(msg, inet_ntoa(tabSockets[i].aC.sin_addr));
+        strcpy(msg, inet_ntoa(tabSockets[i].aC2.sin_addr));
         printf("IP : %s\n", msg);
         send(sock, msg, sizeof(msg), 0);
         bzero(msg, 280);
@@ -263,7 +257,6 @@ void *threadEnvoi(void *numCli)
             bzero(msg, 280);
             bzero(messageComplet, 280);
         }
-        printf("FIN DE LA BOUCLE WHILE\n");
     }
     return NULL;
 }
