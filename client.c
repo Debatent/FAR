@@ -363,10 +363,12 @@ void* envoiefichier(void* args){
     char str[argument -> tailletransfert];
     char fichier[2000] = "./Envoi/";
     strcat(fichier,argument -> nomfichier);
+    printf("FICHIER : %s\n", argument->nomfichier);
 
     FILE *fps = fopen(fichier, "r");
-    send(argument->SockRecepteur, argument->nomfichier, strlen(argument->nomfichier),0);
-
+    printf("Envoi du nom du fichier\n");
+    send(argument->SockRecepteur, argument->nomfichier, sizeof(argument->nomfichier),0);
+    printf("NOm envoyé\n");
     // Lire et envoyer le contenu du fichier
     while (fgets(str, 1000, fps) != NULL) {
         send(argument->SockRecepteur, str, strlen(str),0);
@@ -403,8 +405,10 @@ void* recoisfichier(void* args){
     struct fichierthread *argument = (struct fichierthread*) args;
     //Nom complet du chemin
     char fichier[2000] = "./Reception/";
-    printf("En attente du fichier de ses morts\n");
-    recv(argument ->SockEmetteur, argument -> nomfichier, sizeof(argument -> nomfichier),0);
+        sleep(5);
+    printf("En attente du fichier\n");
+    int res = recv(argument ->SockEmetteur, argument -> nomfichier, sizeof(argument -> nomfichier),0);
+    printf("nom reçu : %d\n", res);
     strcat(fichier,argument -> nomfichier);
     //On ouvre/crée le ficjier en mode ajout à la fin
     FILE *fps = fopen(fichier, "a");
@@ -447,10 +451,10 @@ void* gestionenvoyerfichier(void* args){
     struct sockaddr_in ad;
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY;
-    ad.sin_port = 40000;
+    ad.sin_port = 40056;
     bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 
-    printf("BIND REUSSIT\n");
+    printf("BIND REUSSI\n");
 
 
     listen(dS, 10);
@@ -485,6 +489,7 @@ void* gestionenvoyerfichier(void* args){
             strcpy(argument->nomfichier, fileName);
             printf("En attente de la connexion\n");
             argument->SockRecepteur = accept(dS, (struct sockaddr *)&aC, &lg);
+            printf("CLIENT %d\n", argument->SockRecepteur);
             //On créé un thread pour envoyer le fichier à la personne qui vient de se connecter
             pthread_t tid;
             pthread_create(&tid, NULL, envoiefichier,(void*) argument);
