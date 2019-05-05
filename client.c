@@ -671,8 +671,7 @@ void *envoyermessage(void* args){
             pthread_cond_signal(&cond_activation_tranfert_fichier);
             printf("Entrée ici 3\n");
             pthread_cond_wait(&cond_activation_message,&clavier);
-            printf("Entrée ici 4\n");
-            pthread_mutex_lock(&clavier);
+            
         }
     }
     pthread_exit(0);
