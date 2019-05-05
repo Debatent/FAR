@@ -68,13 +68,25 @@ int getIdByPseudo(char * pseudo) {
     return -1;
 }
 
+//Récupère la position de la socket en entré
+int getPosBySocket(int sock) {
+    printf("LA SOCKET EN PARAM %d\n", sock);
+    for (int i = 0; i < TAILLEMAX-1; i++) {
+        printf("SOKCET NUM %d\n", tabSockets[i].dSC);
+        if (tabSockets[i].dSC == sock) {
+            return i;
+        }
+    }
+    return -1;    
+}
 /* Thread qui réceptionne le message d'un client et l'envoie à l'autre en boucle  */
 void *threadEnvoi(void * numCli) {
     char msg[280];
     char messageComplet[280];
     int res, fin = 0;
     char pseudo[280];
-    int i = numCli;
+    int i = (int) numCli;
+    printf("%d\n", i);
     int dSC = tabSockets[i].dSC;
     /* Réception du pseudo */
     while (fin != 1) {
@@ -130,25 +142,47 @@ void *threadEnvoi(void * numCli) {
             }
             break;
         /* Si le message reçu est "file" */
-        } else if (strcmp(msg, "file") == 0) {
+        } else if (strcmp(msg, "ile") == 0) {
             /* Récupération du pseudo du client auquel le client veut envoyer le fichier */
             bzero(msg, 280);
             recv(dSC, msg, sizeof(msg), 0);
             /* Check si le pseudo existe et envoie au second client l'adresse IP et le port */
             int sock = getIdByPseudo(msg);
+            printf("RETOUR DE LA FONCTION : %d\n", sock);
             if (sock != -1) {
                 strcpy(msg, pseudo);
                 strcat(msg, " souhaite vous envoyer un fichier\n");
                 send(sock, msg, sizeof(msg), 0);
-                strcpy(msg, "file");
-                send(sock, msg, sizeof(msg), 0);*
-                /* Conversion à faire */
-                //Envoi du port
-                strcpy(msg, ntohs(tabSockets[i].aC.sin_port));
+                bzero(msg, 280);
+                strcpy(msg, "ile");
                 send(sock, msg, sizeof(msg), 0);
+                bzero(msg, 280);
+                //ENVOI AU CLIENT RECEPTEUR
+                //Envoi du port 
+                sprintf(msg, "%d", (int) ntohs(tabSockets[i].aC.sin_port));
+                printf("PORT : %s\n", msg);
+                send(sock, msg, sizeof(msg), 0);
+                bzero(msg, 280);
                 //Envoi de l'ip
                 strcpy(msg, inet_ntoa(tabSockets[i].aC.sin_addr));
+                printf("IP : %s\n", msg);
                 send(sock, msg, sizeof(msg), 0);
+                bzero(msg, 280);
+
+                //ENVOI AU CLIENT EMETTEUR
+                int pos = getPosBySocket(sock);
+                if (pos != -1) {
+                    //Envoi du port 
+                    printf("PORT DE L'EMETTEUR i = %d\n", pos);
+                    sprintf(msg, "%d", (int) ntohs(tabSockets[pos].aC.sin_port));
+                    printf("PORT : %s\n", msg);
+                    send(dSC, msg, sizeof(msg), 0);
+                    bzero(msg, 280);
+                    //Envoi de l'ip
+                    strcpy(msg, inet_ntoa(tabSockets[pos].aC.sin_addr));
+                    printf("IP : %s\n", msg);
+                    send(dSC, msg, sizeof(msg), 0);
+                }
 
             } else {
                 strcpy(msg, "Ce pseudo n'est pas connecté, annulation du transfert\n");
@@ -208,7 +242,6 @@ int main(void)
     listen(dS, 10);
     struct sockaddr_in aC;
     socklen_t lg = sizeof(struct sockaddr_in);
-    char msg[280];
 
     signal(SIGINT,traitement);
     /* Boucle principale pour les connexions des clients */

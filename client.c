@@ -138,7 +138,7 @@ int entrerpseudo(struct messagethread argument){
      *renvoie 0 si le pseudo a été validé, -1 en cas d'erreur
      */
      char pseudonyme[argument.taillepseudo];
-     char reponse[3];
+     char reponse[280];
      int res;
      //On fait une boucle tant que le pseudo n'a pas déjà était pris par quelqu'un d'autre
      while(1){
@@ -153,9 +153,11 @@ int entrerpseudo(struct messagethread argument){
              return -1;
          }
          res = recv(argument.dSock, reponse,strlen(reponse) + 1,0);
+         printf("Réponse : %s\n", reponse);
          if (res<=0){
              return-1;
          }
+         //Bug : Ne marche que la première fois
          else if ((strcmp(reponse, "-1")==0)){
              puts("Pseudo déjà pris par quelqu'un d'autre");
          }
@@ -163,6 +165,8 @@ int entrerpseudo(struct messagethread argument){
              printf("Bienvenue %s\n",pseudonyme);
              break;
          }
+         bzero(pseudonyme, argument.taillepseudo);
+         bzero(reponse, 280);
      }
      return 0;
 }
@@ -630,11 +634,12 @@ void *envoyermessage(void* args){
      *si il y a une erreur d'envoie->sort de la boucle
      */
     struct messagethread *argument = (struct messagethread*) args;
-    int res;
+    int res, port;
     char msg [argument->taillemsg-1];
     int dSock = argument->dSock;
     pthread_mutex_lock(&clavier);
     while(1){
+        printf("Entrez un message : \n");
         fgets(msg, argument->taillemsg-1, stdin);
 
         char * pos1 = strchr(msg,'\n');
@@ -649,12 +654,28 @@ void *envoyermessage(void* args){
             printf("Fin de l'envoi des messages\n");
             break;
         }
-        else if (strcmp(msg,"file")){
-            pthread_mutex_unlock(&clavier);
+        else if (strcmp(msg,"ile") == 0){
+            printf("Entrez le pseudo : \n");
+            fgets(msg, argument->taillemsg-1, stdin);
+            char * pos2 = strchr(msg,'\n');
+            *pos2 ='\0';
+            send(dSock, msg, sizeof(msg), 0);
+
+            printf("Réception du port : ");
+            recv(dSock, msg, sizeof(msg), 0);
+            port = atoi(msg);
+            printf("%d\n", port);
+            bzero(msg, argument->taillemsg-1);
+            printf("Réception de l'adresse IP : ");
+            recv(dSock, msg, sizeof(msg), 0);
+            printf("%s\n", msg);
+            // ---------------------------------------------------- CODE CLIENT EMETTEUR DU FICHIER A CONTINUER ICI -------------------------------
+            /*pthread_mutex_unlock(&clavier);
             pthread_cond_signal(&cond_activation_tranfert_fichier);
             pthread_cond_wait(&cond_activation_message,&clavier);
-            pthread_mutex_lock(&clavier);
+            pthread_mutex_lock(&clavier);*/
         }
+        bzero(msg, argument->taillemsg-1);
     }
     pthread_exit(0);
 }
@@ -682,12 +703,12 @@ void *recevoirmessage(void* args){
      *si il y a une erreur de reception->sort de la boucle
      */
     struct messagethread *argument = (struct messagethread*) args;
-    int res, dSock;
+    int res, dSock, port, ip;
     char msg[280];
     dSock = argument->dSock;
 
     while(1){
-        res = recv(dSock,msg, sizeof(msg)+1,0);
+        res = recv(dSock,msg, sizeof(msg),0);
         if (res == 0){
             printf("Warning: Serveur déconnecté\n");
             break;
@@ -695,12 +716,20 @@ void *recevoirmessage(void* args){
         else if(res == -1){
             printf("Erreur: Pas de message reçus\n");
             break;
-        } else if (strcmp(msg, "fin") == 0) {
-            printf("Fin de la réception des messages\n");
-            break;
+        } else if (strcmp(msg, "ile") == 0) {
+            printf("Réception du port : ");
+            recv(dSock, msg, sizeof(msg), 0);
+            port = atoi(msg);
+            printf("%d\n", port);
+            printf("Réception de l'adresse IP : ");
+            recv(dSock, msg, sizeof(msg), 0);
+            printf("%s\n", msg);
+            // --------------------------------- CODE CLIENT RECEPTEUR DU FICHIER A CONTINUER ICI ------------------------------
+        } else {
+            printf("%s\n", msg);
+            bzero(msg, 280);
         }
-        printf("%s\n", msg);
-        bzero(msg, 280);
+
     }
     pthread_exit(0);
 }
@@ -768,12 +797,12 @@ int main (void){
     printf("Tapez les messages en %d caractères:\n", msgthr.taillemsg);
     pthread_t envoyeur;
     pthread_create (&envoyeur, NULL, envoyermessage, (void *)&msgthr);
-
+/*
 
     pthread_t fichier;
     pthread_create(&fichier, NULL, gestionfichier,&msgthr);
 
-    /*Attente de l'extinction du thread*/
+    Attente de l'extinction du thread*/
     pthread_join(envoyeur,NULL);
 
     /*Fermeture de la connexion*/
