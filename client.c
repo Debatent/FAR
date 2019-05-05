@@ -470,9 +470,20 @@ void* gestionenvoyerfichier(void* args){
 
         char fileName[1023];
         res = choisirfichier(fileName);
+
         pthread_mutex_unlock(&clavier);
         pthread_cond_signal(&cond_activation_message);
-
+        char msg[280];
+        //Envoi de l'ip
+        strcpy(msg, inet_ntoa(ad.sin_addr));
+        //printf("IP : %s\n", msg);
+        send(argument->SockServeurFichier, msg, sizeof(msg), 0);
+        bzero(msg, 280);
+        //Envoi du port
+        sprintf(msg, "%d", (int)ntohs(ad.sin_port));
+        //printf("PORT : %s\n", msg);
+        send(argument->SockServeurFichier, msg, sizeof(msg), 0);
+        bzero(msg, 280);
         if (res == 0){
             strcpy(argument->nomfichier, fileName);
             printf("En attente de la connexion\n");
@@ -520,15 +531,15 @@ void* gestionrecevoirfichier(void* args){
         recv(argument->SockServeurFichier, argument -> ip, sizeof( argument -> ip),0);
         printf("IP : %s\n", argument->ip);
         //Le serveur envoie ensuite le port de l'emetteur
-        recv(argument->SockServeurFichier, port, sizeof(port),0);
+        recv(argument->SockServeurFichier, argument->port, sizeof(port),0);
         printf("PORT : %s\n", port);
-        argument->port = 40000;
+
 
         //On configure le socket du recepteur pour qu'il puisse se connecter à l'emetteur
         struct sockaddr_in adEmet;
         adEmet.sin_family = AF_INET;
         adEmet.sin_port = argument -> port;
-        int res = inet_pton(AF_INET, "127.0.0.1", &(adEmet.sin_addr));
+        int res = inet_pton(AF_INET, argument ->ip, &(adEmet.sin_addr));
         if (res == 0){
             printf("Erreur: L'adresse IP entrée n'est pas valide\n");
         }
@@ -671,7 +682,7 @@ void *envoyermessage(void* args){
             pthread_cond_signal(&cond_activation_tranfert_fichier);
             printf("Entrée ici 3\n");
             pthread_cond_wait(&cond_activation_message,&clavier);
-            
+
         }
     }
     pthread_exit(0);
