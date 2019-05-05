@@ -403,6 +403,7 @@ void* recoisfichier(void* args){
     struct fichierthread *argument = (struct fichierthread*) args;
     //Nom complet du chemin
     char fichier[2000] = "./Reception/";
+    printf("En attente du fichier de ses morts\n");
     recv(argument ->SockEmetteur, argument -> nomfichier, sizeof(argument -> nomfichier),0);
     strcat(fichier,argument -> nomfichier);
     //On ouvre/crée le ficjier en mode ajout à la fin
@@ -446,7 +447,7 @@ void* gestionenvoyerfichier(void* args){
     struct sockaddr_in ad;
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY;
-    ad.sin_port = 40000;
+    ad.sin_port = 40056;
     bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 
     printf("BIND REUSSIT\n");
@@ -465,25 +466,21 @@ void* gestionenvoyerfichier(void* args){
         //pthread_mutex_lock(&clavier);
         printf("FILE RECU\n");
         envoyerdestinataire(*argument);
-
-        printf("Pseudo envoyé\n");
-
         char fileName[1023];
         res = choisirfichier(fileName);
 
         pthread_mutex_unlock(&clavier);
         pthread_cond_signal(&cond_activation_message);
+
+        printf("Pseudo envoyé\n");
         char msg[280];
-        //Envoi de l'ip
-        strcpy(msg, inet_ntoa(ad.sin_addr));
-        //printf("IP : %s\n", msg);
-        send(argument->SockServeurFichier, msg, sizeof(msg), 0);
-        bzero(msg, 280);
         //Envoi du port
-        sprintf(msg, "%d", (int)ntohs(ad.sin_port));
-        //printf("PORT : %s\n", msg);
+        sprintf(msg, "%d", (int)ad.sin_port);
+        printf("PORT : %s\n", msg);
         send(argument->SockServeurFichier, msg, sizeof(msg), 0);
         bzero(msg, 280);
+
+    
         if (res == 0){
             strcpy(argument->nomfichier, fileName);
             printf("En attente de la connexion\n");
@@ -522,16 +519,16 @@ void* gestionrecevoirfichier(void* args){
     struct fichierthread *argument = (struct fichierthread*) args;
 
     int dSockrecepteur = socket (PF_INET, SOCK_STREAM, 0);
-    char port[280];
+    char port[280], ip[280];
 
     //Reception information emetteur
 
     while(true){
         // Le serveur envoie d'abord l'IP de l'emetteur
-        recv(argument->SockServeurFichier, argument -> ip, sizeof( argument -> ip),0);
-        printf("IP : %s\n", argument->ip);
+        recv(argument->SockServeurFichier, ip, sizeof(ip),0);
+        printf("IP : %s\n", ip);
         //Le serveur envoie ensuite le port de l'emetteur
-        recv(argument->SockServeurFichier, argument->port, sizeof(port),0);
+        recv(argument->SockServeurFichier, port, sizeof(port),0);
         printf("PORT : %s\n", port);
 
 
@@ -539,7 +536,7 @@ void* gestionrecevoirfichier(void* args){
         struct sockaddr_in adEmet;
         adEmet.sin_family = AF_INET;
         adEmet.sin_port = argument -> port;
-        int res = inet_pton(AF_INET, argument ->ip, &(adEmet.sin_addr));
+        int res = inet_pton(AF_INET, ip, &(adEmet.sin_addr));
         if (res == 0){
             printf("Erreur: L'adresse IP entrée n'est pas valide\n");
         }
