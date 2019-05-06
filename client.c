@@ -407,8 +407,8 @@ void* recoisfichier(void* args){
     char fichier[2000] = "./Reception/";
         sleep(5);
     printf("En attente du fichier\n");
-    int res = recv(argument ->SockEmetteur, argument -> nomfichier, sizeof(argument -> nomfichier),0);
-    printf("nom reçu : %d\n", res);
+    recv(argument ->SockEmetteur, argument -> nomfichier, sizeof(argument -> nomfichier),0);
+    printf("Fichier reçu ");
     strcat(fichier,argument -> nomfichier);
     //On ouvre/crée le ficjier en mode ajout à la fin
     FILE *fps = fopen(fichier, "a");
@@ -451,7 +451,7 @@ void* gestionenvoyerfichier(void* args){
     struct sockaddr_in ad;
     ad.sin_family = AF_INET;
     ad.sin_addr.s_addr = INADDR_ANY;
-    ad.sin_port = 40056;
+    ad.sin_port = 40000;
     bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 
     printf("BIND REUSSI\n");
@@ -552,7 +552,7 @@ void* gestionrecevoirfichier(void* args){
         if (res == -1){
             printf("Erreur: L'émetteur n'est pas accessible\n");
         } else {
-            argument->SockRecepteur = dSockrecepteur;
+            argument->SockEmetteur = dSockrecepteur;
             //On crée le thread dédié à la reception de ce fichier
             pthread_t tid;
             pthread_create( &tid, NULL, recoisfichier,(void*) argument);
