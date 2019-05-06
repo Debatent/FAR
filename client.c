@@ -368,7 +368,7 @@ void* envoiefichier(void* args){
     FILE *fps = fopen(fichier, "r");
     printf("Envoi du nom du fichier\n");
     send(argument->SockRecepteur, argument->nomfichier, sizeof(argument->nomfichier),0);
-    printf("NOm envoyé\n");
+    //printf("NOm envoyé\n");
     // Lire et envoyer le contenu du fichier
     while (fgets(str, 1000, fps) != NULL) {
         send(argument->SockRecepteur, str, strlen(str),0);
@@ -454,7 +454,7 @@ void* gestionenvoyerfichier(void* args){
     ad.sin_port = 40000;
     bind(dS, (struct sockaddr *)&ad, sizeof(ad));
 
-    printf("BIND REUSSI\n");
+    //printf("BIND REUSSI\n");
 
 
     listen(dS, 10);
@@ -465,10 +465,10 @@ void* gestionenvoyerfichier(void* args){
     int res;
     while(true){
         //on attend que l'utilisateur tape file pour entrer ici
-        printf("EN attente de file\n");
+        //printf("EN attente de file\n");
         pthread_cond_wait(&cond_activation_tranfert_fichier,&clavier);
         //pthread_mutex_lock(&clavier);
-        printf("FILE RECU\n");
+        //printf("FILE RECU\n");
         envoyerdestinataire(*argument);
         char fileName[1023];
         res = choisirfichier(fileName);
@@ -484,12 +484,12 @@ void* gestionenvoyerfichier(void* args){
         send(argument->SockServeurFichier, msg, sizeof(msg), 0);
         bzero(msg, 280);
 
-    
+
         if (res == 0){
             strcpy(argument->nomfichier, fileName);
             printf("En attente de la connexion\n");
             argument->SockRecepteur = accept(dS, (struct sockaddr *)&aC, &lg);
-            printf("CLIENT %d\n", argument->SockRecepteur);
+            printf("Récepteur connecté");
             //On créé un thread pour envoyer le fichier à la personne qui vient de se connecter
             pthread_t tid;
             pthread_create(&tid, NULL, envoiefichier,(void*) argument);
@@ -531,10 +531,10 @@ void* gestionrecevoirfichier(void* args){
     while(true){
         // Le serveur envoie d'abord l'IP de l'emetteur
         recv(argument->SockServeurFichier, ip1, sizeof(ip1),0);
-        printf("IP : %s\n", ip1);
+        //printf("IP : %s\n", ip1);
         //Le serveur envoie ensuite le port de l'emetteur
         recv(argument->SockServeurFichier, port, sizeof(port),0);
-        printf("PORT : %s\n", port);
+        //printf("PORT : %s\n", port);
 
 
         //On configure le socket du recepteur pour qu'il puisse se connecter à l'emetteur
@@ -680,11 +680,11 @@ void *envoyermessage(void* args){
             break;
         }
         else if (strcmp(msg,"file")==0){
-            printf("Entrée ici\n");
+            //printf("Entrée ici\n");
             pthread_mutex_unlock(&clavier);
-            printf("Entrée ici 2\n");
+            //printf("Entrée ici 2\n");
             pthread_cond_signal(&cond_activation_tranfert_fichier);
-            printf("Entrée ici 3\n");
+            //printf("Entrée ici 3\n");
             pthread_cond_wait(&cond_activation_message,&clavier);
 
         }
