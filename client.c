@@ -16,6 +16,10 @@
 #include <limits.h>
 #include <dirent.h>
 
+/*crée un signal pour eteindre les threads envoie fichier*/
+
+
+
 
 //Information à transmettre aux threads de message*
 struct messagethread{
@@ -49,7 +53,10 @@ pthread_mutex_t clavier = PTHREAD_MUTEX_INITIALIZER;
 
 
 
-
+void correction(char* argument){
+    char * pos1 = strchr(argument,'\n');
+    *pos1 ='\0';
+}
 
 
 void vidermemoiretamponclavier(void){
@@ -57,11 +64,6 @@ void vidermemoiretamponclavier(void){
     char c;
     while( (c=getchar())!='\n' && c!=EOF);
 }
-
-
-
-
-
 
 
 
@@ -83,8 +85,7 @@ int connexion (int sock){
     //Saisi de l'adresse IP du serveur
     printf ("Veuillez entrer l'adresse IP du serveur:\n");
     fgets (ip,sizeof(ip),stdin);
-    char * correction = strchr(ip,'\n');
-    *correction ='\0';
+    correction(ip);
 
     //printf ("%s\n", ip);
 
@@ -145,8 +146,7 @@ int entrerpseudo(struct messagethread argument){
          printf("Veuillez entrer votre pseudo en %d caractères maximum:\n",argument.taillepseudo);
          fgets(pseudonyme, argument.taillepseudo, stdin);
 
-         char * pos1 = strchr(pseudonyme,'\n');
-         *pos1 ='\0';
+         correction(pseudonyme);
 
          res = send (argument.dSock, pseudonyme,strlen(pseudonyme) + 1,0);
          if (res<0){
@@ -169,12 +169,118 @@ int entrerpseudo(struct messagethread argument){
 
 
 
+int entrernomsalon(struct messagethread argument){
+    /**
+     *Renvoi 0 si le nom du salon entré est correct, -1 si l'utilisateur tape 0
+     */
+    char information[2000];
+    char nomsalon[30];
+    bool choixcorrect = false;
+    while (!choixcorrect){
+
+        puts("Entrez le nom du salon (0 si vous voulez retourner en arrière");
+        fgets(nomsalon, sizeof(nomsalon),stdin);
+        correction(nomsalon);
+        send(argument.dSock, nomsalon, strlen(nomsalon),0);
+        recv(argument.dSock,information, sizeof(information),0)
+        if (strcmp(information,"0") == 0){
+            choixcorrect = true;
+            if (strcmp(nomsalon,"0") == 0){
+                return -1;
+            }
+        }
+        else{
+            puts("Le nom du salon est incorrect");
+        }
+    }
+    return 0;
+
+}
+
+
+
+int entrerdescription(struct messagethread argument){
+    /**
+     *Renvoi 0 si le nom du salon entré est correct, -1 si l'utilisateur tape 0
+     */
+    char information[3];
+    char nomdescription[280];
+    bool choixcorrect = false;
+    while (!choixcorrect){
+
+        puts("Entrez la description en 280 caractères");
+        fgets(nomdescription, sizeof(nomdescription),stdin);
+        correction(nomdescription);
+        send(argument.dSock, nomdescription, strlen(nomdescription),0);
+        if (strcmp(information,"0") == 0){
+            choixcorrect = true;
+        }
+    }
+    return 0;
+
+}
 
 
 
 
 
 
+
+int gestionchaine(struct messagethread argument){
+    char msgchoix[3];
+    //Recoit les infos du serveur
+    char information[2000];
+
+    //choix ajout, editer, supprimer
+
+    bool choixcorrect = false;
+    while (!choixcorrect) {
+        // reception info serveur sur salons
+        recv(argument.dSock, information, sizeof(information),0);
+        puts(information);
+        puts("Tapez 1 pour se connecter, 2 pour créer un salon, 3 pour éditer un salon, 4 pour supprimmer un salon, 0 pour se déconnecter");
+        fgets(msgchoix, sizeof(msgchoix),stdin);
+        correction(msgchoix);
+        send(argument.dSock, msgchoix, strlen(msgchoix),0);
+        recv (argument.dSock, information, sizeof(information),0);
+        int res;
+        //valeur entré correcte
+        if (strcmp(information,"0") == 0){
+            //cas connexion
+            if(strcmp(msgchoix,"1") == 0){
+                res = entrernomsalon(argument);
+                if (res == 0){
+                    choixcorrect = true;
+                }
+            }
+            //cas création
+            else if(strcmp(msgchoix,"2") == 0){
+                res = entrernomsalon(argument);
+                if (res == 0){
+                    entrerdescription(argument);
+                    choixcorrect = true;
+                }
+            }
+            //cas édition
+            else if(strcmp(msgchoix,"3") == 0){
+                res = entrernomsalon(argument);
+                if (res == 0){
+                    entrerdescription(argument);
+                    choixcorrect = true;
+                }
+            }
+            //cas Suppression
+            else if(strcmp(msgchoix,"4") == 0){
+                entrernomsalon(argument);
+            }
+            //cas deconnexion
+            else{
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
 
 
 
@@ -188,8 +294,7 @@ int envoyerdestinataire(struct fichierthread args){
     char pseudo[taillepseudo];
     printf("Entrez le pseudo du destinataire\n");
     fgets(pseudo, taillepseudo, stdin);
-    char * pos1 = strchr(pseudo,'\n');
-    *pos1 ='\0';
+    correction(pseudo);
 
     send (args.SockServeurFichier,pseudo, sizeof(pseudo),0);
 
@@ -377,9 +482,6 @@ void* envoiefichier(void* args){
     close(argument->SockRecepteur);
     pthread_exit(0);
 }
-
-
-
 
 
 
@@ -646,12 +748,6 @@ void* gestionfichier(void* args){
 
 
 
-
-
-
-
-
-
 void *envoyermessage(void* args){
     /**
      *Fonction pour le thread
@@ -660,15 +756,19 @@ void *envoyermessage(void* args){
      *si il y a une erreur d'envoie->sort de la boucle
      */
     struct messagethread *argument = (struct messagethread*) args;
+    pthread_mutex_lock(&clavier);
     int res;
+    res = gestionchaine(*argument);
+    if (res == -1){
+        puts("Arret communication message");
+    }
+
     char msg [argument->taillemsg-1];
     int dSock = argument->dSock;
-    pthread_mutex_lock(&clavier);
     while(1){
         fgets(msg, argument->taillemsg-1, stdin);
 
-        char * pos1 = strchr(msg,'\n');
-        *pos1 ='\0';
+        correction(msg);
 
         res = send(dSock,msg, sizeof(msg)+1,0);
         if (res == -1){
@@ -678,6 +778,13 @@ void *envoyermessage(void* args){
         if (strcmp(msg,"fin")==0){
             printf("Fin de l'envoi des messages\n");
             break;
+        }
+        else if (strcmp(msg, "0") == 0){
+            res = gestionchaine(*argument);
+            if (res == -1){
+                puts("Arret communication message");
+                pthread_exit(0);
+            }
         }
         else if (strcmp(msg,"file")==0){
             //printf("Entrée ici\n");
@@ -769,7 +876,6 @@ int main (void){
     else{
         printf("Connexion réussie\n");
     }
-
 
 
 
