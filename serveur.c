@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define TAILLEMAX 25
+#define TAILLEMAX 50
 
 int dS, dSFiles;
 
@@ -36,6 +36,8 @@ struct thread_args
 {
     int dSC;
     int dSC2;
+    char nomChaine[30];
+    char descrChaine[280];
     char pseudo[280];
     struct sockaddr_in aC;
     struct sockaddr_in aC2;
@@ -45,14 +47,17 @@ struct thread_args
 struct thread_args tabSockets[TAILLEMAX] = {0};
 
 /* Renvoi le nombre de clients connectés à la discussion */
-int getNbConnectes()
+int getNbConnectes(char * salon)
 {
     int count = 0;
     for (int i = 0; i < TAILLEMAX - 1; i++)
     {
-        if (tabSockets[i].dSC != 0)
-        {
-            count++;
+        if (strcmp(tabSockets[i].nomChaine, salon) == 0) {
+            if (tabSockets[i].dSC != 0) {
+                count++;
+            }        
+        } else {
+            i += 10;
         }
     }
     return count;
@@ -97,14 +102,49 @@ int getPosBySocket(int sock)
     return -1;
 }
 
+char *getChaines() {
+    char * chaines;
+    chaines = malloc(sizeof(char)*2000);
+    char[15] nbCo;
+    int i = 0;
+    while (i <= TAILLEMAX)
+    {
+        if (strcmp(tabSockets[i].nomChaine, "") != 0)
+        {
+            strcat(chaines, tabSockets[i].nomChaine);
+            strcat(chaines, " : ");
+            strcat(chaines, tabSockets[i].descrChaine);
+            strcat(chaines, "\nNombre de connectés : ");
+            sprintf(nbCo, "%d", getNbConnectes(nomChaine));
+            strcat(chaines, nbCo);
+        } 
+        i += 10;
+    }
+    return chaines;
+
+}
+//retourne 0 si le salon existe, -1 sinon
+int checkSalon(char* salon) {
+    int i=0;
+    while (i <= TAILLEMAX)
+    {
+        if (strcmp(tabSockets[i].nomChaine, salon == 0)
+        {
+            return 0;
+        } else {
+            i += 10;
+        } 
+
+    }
+    return -1;
+}
+
 void *threadEnvoiFichier(void *numEmetteur)
 {
     printf("DANS LE THREAD ENVOI FICHIER\n");
     int i = (int)numEmetteur;
     char msg[280];
-    char messageComplet[280];
-    int res, fin = 0;
-    char pseudo[280], port[280], ip[280];
+    char pseudo[280], port[280];
     int dSC = tabSockets[i].dSC2;
     /* Récupération du pseudo du client auquel le client veut envoyer le fichier */
     bzero(msg, 280);
@@ -137,16 +177,37 @@ void *threadEnvoiFichier(void *numEmetteur)
     }
 }
 
-/* Thread qui réceptionne le message d'un client et l'envoie à l'autre en boucle  */
-void *threadEnvoi(void *numCli)
-{
+int connexionSalon(int dSC) {
     char msg[280];
+    int res = 0;
+    while (1) {
+        //Récupère le nom du salon
+        recv(dSC, msg, sizeof(msg), 0);
+        //Check si le nom du salon existe
+        res = checkSalon(msg);
+        bzero(msg, 280);
+        sprintf(msg, "%d", res);
+        send(dSC, msg, sizeof(msg), 0);
+        if (res == 0) {
+            //get premiere place vide 
+            break;
+        }
+    }
+
+
+
+}
+
+/* Thread qui réceptionne le message d'un client et l'envoie à l'autre en boucle  */
+void *threadEnvoi(void *args)
+{
+    char msg[280], chaines[2000];
     char messageComplet[280];
-    int res, fin = 0;
+    char action[3];
+    int res, fin = 0, i=0;
     char pseudo[280];
-    int i = (int)numCli;
-    printf("%d\n", i);
-    int dSC = tabSockets[i].dSC;
+    struct thread_args *argument = (struct thread_args*) args;
+    int dSC = argument->dSC;
     pthread_t tid[TAILLEMAX];
     /* Réception du pseudo */
     while (fin != 1)
@@ -163,12 +224,51 @@ void *threadEnvoi(void *numCli)
         {
             strcpy(msg, "0");
             printf("OK : %s\n", msg);
-            send(tabSockets[i].dSC, msg, sizeof(msg), 0);
-            strcpy(tabSockets[i].pseudo, pseudo);
+            send(dSC, msg, sizeof(msg), 0);
             fin = 1;
         }
         bzero(msg, 280);
     }
+    
+    //Envoi les chaines disponibles
+    strcpy(chaines, getChaines());
+    if (strcmp(chaines, "") == 0) {
+        strcpy(chaines, "Aucune chaîne de disponible\n");
+        send(dSC, chaines, sizeof(chaines), 0);
+    } else {
+        printf("Envoi des chaines au client\n");
+        send(dSC, chaines, sizeof(chaines), 0);
+    }
+    
+    //Reçoit l'action 0 : Déconnexion, 1 : Connexion à un salon, 2: Créer un salon 3 : Edition d'un salon, 4 : Suppression d'un salon 
+    recv(dSC, action, sizeof(action), 0);
+
+    if (strcmp(action, "0") == 0) {
+        strcpy(msg, "0");
+        send(dSC, msg, sizeof(msg), 0);
+        return NULL;
+    } else if (strcmp(action, "1") == 0) {
+        strcpy(msg, "0");
+        send(dSC, msg, sizeof(msg), 0);
+        connexionSalon(dSC);
+    } else if (strcmp(action, "2") == 0) {
+        strcpy(msg, "0");
+        send(dSC, msg, sizeof(msg), 0);
+        creerSalon();
+    } else if (strcmp(action, "3") == 0) {
+        strcpy(msg, "0");
+        send(dSC, msg, sizeof(msg), 0);
+        editerSalon();
+    } else if(strcmp(action, "4") == 0) {
+        strcpy(msg, "0");
+        send(dSC, msg, sizeof(msg), 0);
+        supprimerSalon();
+    } else {
+        strcpy(msg, "-1");
+        send(dSC, msg, sizeof(msg), 0);
+    }
+
+    //Envoi 0 ou -1 selon si c'est possible
 
     printf("Pseudo : %s\n", pseudo);
     printf("ID du client : %d\n", dSC);
@@ -279,6 +379,7 @@ int main(void)
     /* Déclaration des variables */
     int res, i = 0;
     pthread_t tid[TAILLEMAX];
+    struct thread_args thr;
 
     /* Initialisation du serveur */
     dS = socket(PF_INET, SOCK_STREAM, 0);
@@ -312,12 +413,12 @@ int main(void)
     while (1)
     {
         /* Attente de connexions entrantes */
-        tabSockets[i].dSC = accept(dS, (struct sockaddr *)&aC, &lg);
-        tabSockets[i].aC = aC;
-        printf("Client DSC : %d\n", tabSockets[i].dSC);
+        thr.dSC = accept(dS, (struct sockaddr *)&aC, &lg);
+        thr.aC = aC;
+        printf("Client DSC : %d\n", thr.dSC);
 
         /* Création du thread permettant la transmission des messages */
-        pthread_create(&tid[i], NULL, threadEnvoi, i);
+        pthread_create(&tid[i], NULL, threadEnvoi, (void *) &thr);
         i++;
     }
 
