@@ -105,7 +105,7 @@ int getPosBySocket(int sock)
 char *getChaines() {
     char * chaines;
     chaines = malloc(sizeof(char)*2000);
-    char[15] nbCo;
+    char nbCo[15];
     int i = 0;
     while (i <= TAILLEMAX)
     {
@@ -115,7 +115,7 @@ char *getChaines() {
             strcat(chaines, " : ");
             strcat(chaines, tabSockets[i].descrChaine);
             strcat(chaines, "\nNombre de connectés : ");
-            sprintf(nbCo, "%d", getNbConnectes(nomChaine));
+            sprintf(nbCo, "%d", getNbConnectes(tabSockets[i].nomChaine));
             strcat(chaines, nbCo);
         } 
         i += 10;
@@ -128,7 +128,7 @@ int checkSalon(char* salon) {
     int i=0;
     while (i <= TAILLEMAX)
     {
-        if (strcmp(tabSockets[i].nomChaine, salon == 0)
+        if (strcmp(tabSockets[i].nomChaine, salon) == 0)
         {
             return 0;
         } else {
@@ -177,20 +177,58 @@ void *threadEnvoiFichier(void *numEmetteur)
     }
 }
 
-int connexionSalon(int dSC) {
+int inserer(char * nomSalon, int dSC, char * pseudo) {
+    int i=0;
+    while (i <= TAILLEMAX)
+    {
+        if (strcmp(tabSockets[i].nomChaine, salon) == 0)
+        {
+            while (tabSockets[i].dSC != 0) {
+                i += 1;
+            }
+            if (strcmp(tabSockets[i].nomChaine, salon) == 0) {
+                tabSockets[i].dSC = dSC;
+                tabSockets[i].pseudo = pseudo;
+                return 0;
+            } else {
+                return 1;
+            }
+        } else {
+            i += 10;
+        } 
+
+    }
+    return -1;
+
+}
+int connexionSalon(int dSC, char * pseudo) {
     char msg[280];
+    char nomSalon[30];
     int res = 0;
     while (1) {
         //Récupère le nom du salon
-        recv(dSC, msg, sizeof(msg), 0);
-        //Check si le nom du salon existe
-        res = checkSalon(msg);
-        bzero(msg, 280);
+        recv(dSC, nomSalon, sizeof(nomSalon), 0);
+
+        if (strcmp(nomSalon, "0") == 0) {
+            strcpy(msg, "0");
+            send(dSc, msg, sizeof(msg), 0);
+            return -1;
+        }
+        //get premiere place vide 
+        res = inserer(nomSalon, dSC, pseudo);
+        if (res == 0) {
+            printf("Insertion réussie\n");
+            sprintf(msg, "%d", res);
+            send(dSC, msg, sizeof(msg), 0);
+            break;
+        } else if (res == -1) {
+            printf("Nom du salon inexistant\n");
+        } else {
+            res = -1
+            printf("Salon plein\n");
+        }
         sprintf(msg, "%d", res);
         send(dSC, msg, sizeof(msg), 0);
-        if (res == 0) {
-            //get premiere place vide 
-            break;
         }
     }
 
@@ -230,43 +268,51 @@ void *threadEnvoi(void *args)
         bzero(msg, 280);
     }
     
-    //Envoi les chaines disponibles
-    strcpy(chaines, getChaines());
-    if (strcmp(chaines, "") == 0) {
-        strcpy(chaines, "Aucune chaîne de disponible\n");
-        send(dSC, chaines, sizeof(chaines), 0);
-    } else {
-        printf("Envoi des chaines au client\n");
-        send(dSC, chaines, sizeof(chaines), 0);
-    }
-    
-    //Reçoit l'action 0 : Déconnexion, 1 : Connexion à un salon, 2: Créer un salon 3 : Edition d'un salon, 4 : Suppression d'un salon 
-    recv(dSC, action, sizeof(action), 0);
 
-    if (strcmp(action, "0") == 0) {
-        strcpy(msg, "0");
-        send(dSC, msg, sizeof(msg), 0);
-        return NULL;
-    } else if (strcmp(action, "1") == 0) {
-        strcpy(msg, "0");
-        send(dSC, msg, sizeof(msg), 0);
-        connexionSalon(dSC);
-    } else if (strcmp(action, "2") == 0) {
-        strcpy(msg, "0");
-        send(dSC, msg, sizeof(msg), 0);
-        creerSalon();
-    } else if (strcmp(action, "3") == 0) {
-        strcpy(msg, "0");
-        send(dSC, msg, sizeof(msg), 0);
-        editerSalon();
-    } else if(strcmp(action, "4") == 0) {
-        strcpy(msg, "0");
-        send(dSC, msg, sizeof(msg), 0);
-        supprimerSalon();
-    } else {
-        strcpy(msg, "-1");
-        send(dSC, msg, sizeof(msg), 0);
+    
+    while (1) {
+        //Envoi les chaines disponibles
+        strcpy(chaines, getChaines());
+        if (strcmp(chaines, "") == 0) {
+            strcpy(chaines, "Aucune chaîne de disponible\n");
+            send(dSC, chaines, sizeof(chaines), 0);
+        } else {
+            printf("Envoi des chaines au client\n");
+            send(dSC, chaines, sizeof(chaines), 0);
+        }
+        //Reçoit l'action 0 : Déconnexion, 1 : Connexion à un salon, 2: Créer un salon 3 : Edition d'un salon, 4 : Suppression d'un salon 
+        recv(dSC, action, sizeof(action), 0);
+
+        if (strcmp(action, "0") == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            return NULL;
+        } else if (strcmp(action, "1") == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            res = connexionSalon(dSC, pseudo);
+            if (res == 0) {
+                break;
+            }
+        } else if (strcmp(action, "2") == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            creerSalon();
+        } else if (strcmp(action, "3") == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            editerSalon();
+        } else if(strcmp(action, "4") == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            supprimerSalon();
+        } else {
+            strcpy(msg, "-1");
+            send(dSC, msg, sizeof(msg), 0);
+        }
+
     }
+
 
     //Envoi 0 ou -1 selon si c'est possible
 
