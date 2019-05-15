@@ -169,6 +169,9 @@ int entrerpseudo(struct messagethread argument){
 
 
 
+
+
+
 int entrernomsalon(struct messagethread argument){
     /**
      *Renvoi 0 si le nom du salon entré est correct, -1 si l'utilisateur tape 0
@@ -182,7 +185,8 @@ int entrernomsalon(struct messagethread argument){
         fgets(nomsalon, sizeof(nomsalon),stdin);
         correction(nomsalon);
         send(argument.dSock, nomsalon, strlen(nomsalon),0);
-        recv(argument.dSock,information, sizeof(information),0)
+        //Confirmation serveur
+        recv(argument.dSock,information, sizeof(information),0);
         if (strcmp(information,"0") == 0){
             choixcorrect = true;
             if (strcmp(nomsalon,"0") == 0){
@@ -196,6 +200,8 @@ int entrernomsalon(struct messagethread argument){
     return 0;
 
 }
+
+
 
 
 
@@ -227,30 +233,37 @@ int entrerdescription(struct messagethread argument){
 
 
 int gestionchaine(struct messagethread argument){
+    /**
+     *Permet de gérer la chaine
+     *on l'appelle lorsqu'on est dans le menu de salon
+     *on le quitte lorsqu'on rejoint un salon ou lorsqu'on se déconnecte
+     */
     char msgchoix[3];
     //Recoit les infos du serveur
     char information[2000];
 
-    //choix ajout, editer, supprimer
 
     bool choixcorrect = false;
     while (!choixcorrect) {
         // reception info serveur sur salons
         recv(argument.dSock, information, sizeof(information),0);
         puts(information);
+        //choix ajout, editer, supprimer
         puts("Tapez 1 pour se connecter, 2 pour créer un salon, 3 pour éditer un salon, 4 pour supprimmer un salon, 0 pour se déconnecter");
         fgets(msgchoix, sizeof(msgchoix),stdin);
         correction(msgchoix);
         send(argument.dSock, msgchoix, strlen(msgchoix),0);
+        //confirmation du serveur que le choix est correct
         recv (argument.dSock, information, sizeof(information),0);
         int res;
-        //valeur entré correcte
+        //valeur entrée correcte
         if (strcmp(information,"0") == 0){
             //cas connexion
             if(strcmp(msgchoix,"1") == 0){
                 res = entrernomsalon(argument);
                 if (res == 0){
                     choixcorrect = true;
+                    puts("Connection réussie");
                 }
             }
             //cas création
@@ -443,9 +456,6 @@ int choisirfichier(char nomdufichier[1023]){
      strcpy(nomdufichier,fileName);
      return 0;
 }
-
-
-
 
 
 
@@ -896,7 +906,6 @@ int main (void){
 
     /*Initialisation des condition(pour la synchronisation)*/
     pthread_cond_init(&cond_activation_tranfert_fichier,0);
-
     pthread_cond_init(&cond_activation_message,0);
 
 

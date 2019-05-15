@@ -47,7 +47,7 @@ struct thread_args
 struct thread_args tabSockets[TAILLEMAX] = {0};
 
 /* Renvoi le nombre de clients connectés à la discussion */
-int getNbConnectes(char * salon)
+int getNbConnectes(char *salon)
 {
     int count = 0;
     for (int i = 0; i < TAILLEMAX - 1; i++)
@@ -55,7 +55,7 @@ int getNbConnectes(char * salon)
         if (strcmp(tabSockets[i].nomChaine, salon) == 0) {
             if (tabSockets[i].dSC != 0) {
                 count++;
-            }        
+            }
         } else {
             i += 10;
         }
@@ -117,7 +117,7 @@ char *getChaines() {
             strcat(chaines, "\nNombre de connectés : ");
             sprintf(nbCo, "%d", getNbConnectes(tabSockets[i].nomChaine));
             strcat(chaines, nbCo);
-        } 
+        }
         i += 10;
     }
     return chaines;
@@ -133,7 +133,7 @@ int checkSalon(char* salon) {
             return 0;
         } else {
             i += 10;
-        } 
+        }
 
     }
     return -1;
@@ -177,16 +177,16 @@ void *threadEnvoiFichier(void *numEmetteur)
     }
 }
 
-int inserer(char * nomSalon, int dSC, char * pseudo) {
+int inserer(char *nomSalon, int dSC, char *pseudo) {
     int i=0;
     while (i <= TAILLEMAX)
     {
-        if (strcmp(tabSockets[i].nomChaine, salon) == 0)
+        if (strcmp(tabSockets[i].nomChaine, nomSalon) == 0)
         {
             while (tabSockets[i].dSC != 0) {
                 i += 1;
             }
-            if (strcmp(tabSockets[i].nomChaine, salon) == 0) {
+            if (strcmp(tabSockets[i].nomChaine, nomSalon) == 0) {
                 tabSockets[i].dSC = dSC;
                 tabSockets[i].pseudo = pseudo;
                 return 0;
@@ -195,13 +195,13 @@ int inserer(char * nomSalon, int dSC, char * pseudo) {
             }
         } else {
             i += 10;
-        } 
+        }
 
     }
     return -1;
 
 }
-int connexionSalon(int dSC, char * pseudo) {
+int connexionSalon(int dSC, char *pseudo) {
     char msg[280];
     char nomSalon[30];
     int res = 0;
@@ -211,10 +211,10 @@ int connexionSalon(int dSC, char * pseudo) {
 
         if (strcmp(nomSalon, "0") == 0) {
             strcpy(msg, "0");
-            send(dSc, msg, sizeof(msg), 0);
+            send(dSC, msg, sizeof(msg), 0);
             return -1;
         }
-        //get premiere place vide 
+        //get premiere place vide
         res = inserer(nomSalon, dSC, pseudo);
         if (res == 0) {
             printf("Insertion réussie\n");
@@ -224,7 +224,7 @@ int connexionSalon(int dSC, char * pseudo) {
         } else if (res == -1) {
             printf("Nom du salon inexistant\n");
         } else {
-            res = -1
+            res = -1;
             printf("Salon plein\n");
         }
         sprintf(msg, "%d", res);
@@ -267,9 +267,9 @@ void *threadEnvoi(void *args)
         }
         bzero(msg, 280);
     }
-    
 
-    
+
+
     while (1) {
         //Envoi les chaines disponibles
         strcpy(chaines, getChaines());
@@ -280,7 +280,7 @@ void *threadEnvoi(void *args)
             printf("Envoi des chaines au client\n");
             send(dSC, chaines, sizeof(chaines), 0);
         }
-        //Reçoit l'action 0 : Déconnexion, 1 : Connexion à un salon, 2: Créer un salon 3 : Edition d'un salon, 4 : Suppression d'un salon 
+        //Reçoit l'action 0 : Déconnexion, 1 : Connexion à un salon, 2: Créer un salon 3 : Edition d'un salon, 4 : Suppression d'un salon
         recv(dSC, action, sizeof(action), 0);
 
         if (strcmp(action, "0") == 0) {
