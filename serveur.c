@@ -81,7 +81,7 @@ int getIdByPseudo(char *pseudo)
     {
         if (strcmp(tabSockets[i].pseudo, pseudo) == 0)
         {
-            printf("Pseudo reconnu\n");
+            puts("Pseudo reconnu");
             return tabSockets[i].dSC2;
         }
     }
@@ -177,7 +177,7 @@ void *threadEnvoiFichier(void *numEmetteur)
     }
 }
 
-int inserer(char *nomSalon, int dSC, char *pseudo) {
+int inserer(char *nomSalon, int dSC, char* pseudo) {
     int i=0;
     while (i <= TAILLEMAX)
     {
@@ -188,7 +188,7 @@ int inserer(char *nomSalon, int dSC, char *pseudo) {
             }
             if (strcmp(tabSockets[i].nomChaine, nomSalon) == 0) {
                 tabSockets[i].dSC = dSC;
-                tabSockets[i].pseudo = pseudo;
+                strcpy(tabSockets[i].pseudo, pseudo);
                 return 0;
             } else {
                 return 1;
@@ -229,11 +229,7 @@ int connexionSalon(int dSC, char *pseudo) {
         }
         sprintf(msg, "%d", res);
         send(dSC, msg, sizeof(msg), 0);
-        }
     }
-
-
-
 }
 
 /* Thread qui réceptionne le message d'un client et l'envoie à l'autre en boucle  */
@@ -267,8 +263,6 @@ void *threadEnvoi(void *args)
         }
         bzero(msg, 280);
     }
-
-
 
     while (1) {
         //Envoi les chaines disponibles
