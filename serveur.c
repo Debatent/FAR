@@ -199,8 +199,84 @@ int inserer(char *nomSalon, int dSC, char* pseudo) {
 
     }
     return -1;
+}
+
+int salonExistant(char *nom) {
+    int i=0;
+    while (i <= TAILLEMAX)
+    {
+        if (strcmp(tabSockets[i].nomChaine, nom) == 0)
+        {
+            return -1;
+        }
+        i = i+1;
+    }
+    return 0;
+}
+
+int ajouterSalon(char *nom, char*description) {
+    int i=0;
+    while (i <= TAILLEMAX)
+    {
+        if (strcmp(tabSockets[i].nomChaine, "") == 0)
+        {
+            strcpy(tabSockets[i].nomChaine, nom);
+            strcpy(tabSockets[i].descrChaine, description);
+            return 0;
+        }
+        i = i+10;   
+    }
+    return -1;
+}
+
+char *getSalonByPseudo(char * pseudo) {
+    int i = 0;
+    while (i <= TAILLEMAX)
+    {
+        if (strcmp(tabSockets[i].pseudo, pseudo) == 0)
+        {
+            return tabSockets[i].nomChaine;
+        }
+        i += 1;
+    }
+    return "erreur";
 
 }
+
+int editDescSalon(char *nomSalon, char *desc) {
+    int i=0;
+    while (i <= TAILLEMAX)
+    {
+        if (strcmp(tabSockets[i].nomChaine, nomSalon) == 0)
+        {
+            strcpy(tabSockets[i].descrChaine, desc);
+            return 0;
+        }
+        i = i+10;   
+    }
+    return -1;
+}
+
+int deleteSalon(char *nomSalon) {
+    int i=0;
+    char msg[280];
+    while (i <= TAILLEMAX)
+    {
+        if (strcmp(tabSockets[i].nomChaine, nomSalon) == 0)
+        {
+            for (int j = 0; j < 10; j++) {
+                strcpy(tabSockets[i+j].nomChaine, "");
+                strcpy(tabSockets[i+j].descrChaine, "");
+                strcpy(msg, "quit");
+                send(tabSockets[i+j].dSC, msg, sizeof(msg), 0);
+            }
+            return 0;
+        }
+        i = i+10;   
+    }
+    return -1;
+}
+
 int connexionSalon(int dSC, char *pseudo) {
     char msg[280];
     char nomSalon[30];
@@ -230,6 +306,108 @@ int connexionSalon(int dSC, char *pseudo) {
         sprintf(msg, "%d", res);
         send(dSC, msg, sizeof(msg), 0);
     }
+    return 0;
+}
+
+int creerSalon(int dSC) {
+    char msg[280];
+    char description[280];
+    char nomSalon[30];
+    int res = 0;
+    while (1) {
+        //Récupère le nom du salon
+        recv(dSC, nomSalon, sizeof(nomSalon), 0);
+
+        if (strcmp(nomSalon, "0") == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            return -1;
+        }
+        if (salonExistant(nomSalon) == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            recv(dSC, description, sizeof(description), 0);
+            res = ajouterSalon(msg, description);
+            if (res == 0) {
+                strcpy(msg, "0");
+                send(dSC, msg, sizeof(msg), 0);
+                break;
+            } else {
+                strcpy(msg, "-1");
+                send(dSC, msg, sizeof(msg), 0);
+            }
+        } else {
+            strcpy(msg, "-1");
+            send(dSC, msg, sizeof(msg), 0);
+        }        
+    }
+    return 0;
+}
+
+int editerSalon(int dSC) {
+    char msg[280];
+    char description[280];
+    char nomSalon[30];
+    int res = 0;
+    while (1) {
+        //Récupère le nom du salon
+        recv(dSC, nomSalon, sizeof(nomSalon), 0);
+
+        if (strcmp(nomSalon, "0") == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            return -1;
+        }
+        if (salonExistant(nomSalon) == -1) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            recv(dSC, description, sizeof(description), 0);
+            res = editDescSalon(nomSalon, description);
+            if (res == 0) {
+                strcpy(msg, "0");
+                send(dSC, msg, sizeof(msg), 0);
+                break;
+            } else {
+                strcpy(msg, "-1");
+                send(dSC, msg, sizeof(msg), 0);
+            }
+        } else {
+            strcpy(msg, "-1");
+            send(dSC, msg, sizeof(msg), 0);
+        }        
+    }
+    return 0;
+}
+
+int supprimerSalon(int dSC) {
+    char msg[280];
+    char nomSalon[30];
+    int res = 0;
+    while (1) {
+        //Récupère le nom du salon
+        recv(dSC, nomSalon, sizeof(nomSalon), 0);
+
+        if (strcmp(nomSalon, "0") == 0) {
+            strcpy(msg, "0");
+            send(dSC, msg, sizeof(msg), 0);
+            return -1;
+        }
+        if (salonExistant(nomSalon) == -1) {
+            res = deleteSalon(nomSalon);
+            if (res == 0) {
+                strcpy(msg, "0");
+                send(dSC, msg, sizeof(msg), 0);
+                break;
+            } else {
+                strcpy(msg, "-1");
+                send(dSC, msg, sizeof(msg), 0);
+            }
+        } else {
+            strcpy(msg, "-1");
+            send(dSC, msg, sizeof(msg), 0);
+        }        
+    }
+    return 0;
 }
 
 /* Thread qui réceptionne le message d'un client et l'envoie à l'autre en boucle  */
@@ -237,6 +415,7 @@ void *threadEnvoi(void *args)
 {
     char msg[280], chaines[2000];
     char messageComplet[280];
+    char nomSalon[280];
     char action[3];
     int res, fin = 0, i=0;
     char pseudo[280];
@@ -279,10 +458,12 @@ void *threadEnvoi(void *args)
 
         if (strcmp(action, "0") == 0) {
             strcpy(msg, "0");
+            //Envoi de la confirmation
             send(dSC, msg, sizeof(msg), 0);
             return NULL;
         } else if (strcmp(action, "1") == 0) {
             strcpy(msg, "0");
+            //Envoi de la confirmation
             send(dSC, msg, sizeof(msg), 0);
             res = connexionSalon(dSC, pseudo);
             if (res == 0) {
@@ -291,15 +472,15 @@ void *threadEnvoi(void *args)
         } else if (strcmp(action, "2") == 0) {
             strcpy(msg, "0");
             send(dSC, msg, sizeof(msg), 0);
-            creerSalon();
+            creerSalon(dSC);
         } else if (strcmp(action, "3") == 0) {
             strcpy(msg, "0");
             send(dSC, msg, sizeof(msg), 0);
-            editerSalon();
+            editerSalon(dSC);
         } else if(strcmp(action, "4") == 0) {
             strcpy(msg, "0");
             send(dSC, msg, sizeof(msg), 0);
-            supprimerSalon();
+            supprimerSalon(dSC);
         } else {
             strcpy(msg, "-1");
             send(dSC, msg, sizeof(msg), 0);
@@ -312,8 +493,8 @@ void *threadEnvoi(void *args)
 
     printf("Pseudo : %s\n", pseudo);
     printf("ID du client : %d\n", dSC);
-    printf("Adresse IP : %s\n", inet_ntoa(tabSockets[i].aC.sin_addr));
-    printf("Port : %d\n", (int)ntohs(tabSockets[i].aC.sin_port));
+   // printf("Adresse IP : %s\n", inet_ntoa(tabSockets[i].aC.sin_addr));
+   // printf("Port : %d\n", (int)ntohs(tabSockets[i].aC.sin_port));
 
     /* Condition d'arrêt : Pas de réception (le client a mis fin à la connexion) */
     while (1)
@@ -332,26 +513,30 @@ void *threadEnvoi(void *args)
             strcpy(messageComplet, pseudo);
             strcat(messageComplet, " a quitté la discussion\0\n");
             /* Envoi à tous les clients */
-            for (int i = 0; i < TAILLEMAX - 1; i++)
+            strcpy(nomSalon,getSalonByPseudo(pseudo));
+            while (i < TAILLEMAX)
             {
-                if (tabSockets[i].dSC != 0)
-                {
-                    /* Suppression du socket du client ayant émit "fin" dans le tableau */
-                    if (tabSockets[i].dSC == dSC)
+                if (strcmp(tabSockets[i].nomChaine, nomSalon) == 0) {
+                    if (tabSockets[i].dSC != 0)
                     {
-                        tabSockets[i].dSC = 0;
-                        strcpy(tabSockets[i].pseudo, "");
-                    }
-                    else
-                    {
-                        printf("ENVOI AU CLIENT %d\n", i);
-                        res = send(tabSockets[i].dSC, messageComplet, sizeof(messageComplet), 0);
-                        if (res == 0)
+                        /* Suppression du socket du client ayant émit "fin" dans le tableau */
+                        if (tabSockets[i].dSC == dSC)
                         {
                             tabSockets[i].dSC = 0;
+                            strcpy(tabSockets[i].pseudo, "");
+                        }
+                        else
+                        {
+                            printf("ENVOI AU CLIENT %d\n", i);
+                            res = send(tabSockets[i].dSC, messageComplet, sizeof(messageComplet), 0);
+                            if (res == 0)
+                            {
+                                tabSockets[i].dSC = 0;
+                            }
                         }
                     }
                 }
+                i += 1;
             }
             break;
             /* Si le message reçu est "file" */
@@ -368,17 +553,21 @@ void *threadEnvoi(void *args)
             strcat(messageComplet, msg);
             printf("%s\n", messageComplet);
             /* Envoi à tous les clients */
-            for (int i = 0; i < TAILLEMAX - 1; i++)
+            i = 0;
+            while (i < TAILLEMAX)
             {
-                if (tabSockets[i].dSC != 0 && tabSockets[i].dSC != dSC)
-                {
-                    printf("ENVOI AU CLIENT %d\n", tabSockets[i].dSC);
-                    res = send(tabSockets[i].dSC, messageComplet, sizeof(messageComplet), 0);
-                    if (res == 0)
+                if (strcmp(tabSockets[i].nomChaine, nomSalon) == 0) {
+                    if (tabSockets[i].dSC != 0 && tabSockets[i].dSC != dSC)
                     {
-                        tabSockets[i].dSC = 0;
+                        printf("ENVOI AU CLIENT %d\n", tabSockets[i].dSC);
+                        res = send(tabSockets[i].dSC, messageComplet, sizeof(messageComplet), 0);
+                        if (res == 0)
+                        {
+                            tabSockets[i].dSC = 0;
+                        }
                     }
-                }
+                } 
+                i += 1;
             }
             bzero(msg, 280);
             bzero(messageComplet, 280);

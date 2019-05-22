@@ -218,6 +218,8 @@ int entrerdescription(struct messagethread argument){
         fgets(nomdescription, sizeof(nomdescription),stdin);
         correction(nomdescription);
         send(argument.dSock, nomdescription, strlen(nomdescription),0);
+        //Confirmation serveur
+        recv(argument.dSock,information, sizeof(information),0);
         if (strcmp(information,"0") == 0){
             choixcorrect = true;
         }
