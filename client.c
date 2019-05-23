@@ -44,14 +44,18 @@ char ip[INET_ADDRSTRLEN];
 
 
 //Envoie les signaux pour activer l'accès au clavier des différents threads
-pthread_cond_t cond_activation_tranfert_fichier , cond_activation_message;
+pthread_cond_t cond_activation_tranfert_fichier, cond_activation_message;
+
+//Envoie les singaux pour activer la reception est l'affichage des messages
+pthread_cond_t cond_activation_choix_salon, cond_activation_reception_message;
 
 
 
 //Mutex servant à gérer l'accès au clavier
 pthread_mutex_t clavier = PTHREAD_MUTEX_INITIALIZER;
 
-
+//Mutex servant à gerer l'affichage des messages pour la gestion
+pthread_mutex_t affichage = PTHREAD_MUTEX_INITIALIZER;
 
 void correction(char* argument){
     char * pos1 = strchr(argument,'\n');
@@ -139,7 +143,7 @@ int entrerpseudo(struct messagethread argument){
      *renvoie 0 si le pseudo a été validé, -1 en cas d'erreur
      */
      char pseudonyme[argument.taillepseudo];
-     char reponse[3];
+     char reponse[280];
      int res;
      //On fait une boucle tant que le pseudo n'a pas déjà était pris par quelqu'un d'autre
      while(1){
@@ -148,11 +152,11 @@ int entrerpseudo(struct messagethread argument){
 
          correction(pseudonyme);
 
-         res = send (argument.dSock, pseudonyme,strlen(pseudonyme) + 1,0);
+         res = send (argument.dSock, pseudonyme,sizeof(pseudonyme) + 1,0);
          if (res<0){
              return -1;
          }
-         res = recv(argument.dSock, reponse,strlen(reponse) + 1,0);
+         res = recv(argument.dSock, reponse,sizeof(reponse) + 1,0);
          if (res<=0){
              return-1;
          }
@@ -163,6 +167,7 @@ int entrerpseudo(struct messagethread argument){
              printf("Bienvenue %s\n",pseudonyme);
              break;
          }
+         strcpy(pseudonyme,"");
      }
      return 0;
 }
@@ -176,7 +181,7 @@ int entrernomsalon(struct messagethread argument){
     /**
      *Renvoi 0 si le nom du salon entré est correct, -1 si l'utilisateur tape 0
      */
-    char information[2000];
+    char information[280];
     char nomsalon[30];
     bool choixcorrect = false;
     while (!choixcorrect){
@@ -184,7 +189,7 @@ int entrernomsalon(struct messagethread argument){
         puts("Entrez le nom du salon (0 si vous voulez retourner en arrière");
         fgets(nomsalon, sizeof(nomsalon),stdin);
         correction(nomsalon);
-        send(argument.dSock, nomsalon, strlen(nomsalon),0);
+        send(argument.dSock, nomsalon, sizeof(nomsalon),0);
         //Confirmation serveur
         recv(argument.dSock,information, sizeof(information),0);
         if (strcmp(information,"0") == 0){
@@ -196,6 +201,7 @@ int entrernomsalon(struct messagethread argument){
         else{
             puts("Le nom du salon est incorrect");
         }
+        strcpy(nomsalon,"");
     }
     return 0;
 
@@ -209,7 +215,7 @@ int entrerdescription(struct messagethread argument){
     /**
      *Renvoi 0 si le nom du salon entré est correct, -1 si l'utilisateur tape 0
      */
-    char information[3];
+    char information[280];
     char nomdescription[280];
     bool choixcorrect = false;
     while (!choixcorrect){
@@ -217,7 +223,7 @@ int entrerdescription(struct messagethread argument){
         puts("Entrez la description en 280 caractères");
         fgets(nomdescription, sizeof(nomdescription),stdin);
         correction(nomdescription);
-        send(argument.dSock, nomdescription, strlen(nomdescription),0);
+        send(argument.dSock, nomdescription, sizeof(nomdescription),0);
         //Confirmation serveur
         recv(argument.dSock,information, sizeof(information),0);
         if (strcmp(information,"0") == 0){
@@ -249,7 +255,7 @@ int gestionchaine(struct messagethread argument){
     while (!choixcorrect) {
         // reception info serveur sur salons
         recv(argument.dSock, information, sizeof(information),0);
-        puts(information);
+        printf("%s\n",information);
         //choix ajout, editer, supprimer
         puts("Tapez 1 pour se connecter, 2 pour créer un salon, 3 pour éditer un salon, 4 pour supprimmer un salon, 0 pour se déconnecter");
         fgets(msgchoix, sizeof(msgchoix),stdin);
@@ -273,7 +279,6 @@ int gestionchaine(struct messagethread argument){
                 res = entrernomsalon(argument);
                 if (res == 0){
                     entrerdescription(argument);
-                    choixcorrect = true;
                 }
             }
             //cas édition
@@ -281,7 +286,7 @@ int gestionchaine(struct messagethread argument){
                 res = entrernomsalon(argument);
                 if (res == 0){
                     entrerdescription(argument);
-                    choixcorrect = true;
+
                 }
             }
             //cas Suppression
@@ -293,6 +298,7 @@ int gestionchaine(struct messagethread argument){
                 return -1;
             }
         }
+        strcpy(msgchoix,"");
     }
     return 0;
 }
@@ -769,11 +775,14 @@ void *envoyermessage(void* args){
      */
     struct messagethread *argument = (struct messagethread*) args;
     pthread_mutex_lock(&clavier);
+    pthread_mutex_lock(&affichage);
     int res;
     res = gestionchaine(*argument);
     if (res == -1){
         puts("Arret communication message");
     }
+    pthread_mutex_unlock(&affichage);
+    pthread_cond_signal(&cond_activation_reception_message);
 
     char msg [argument->taillemsg-1];
     int dSock = argument->dSock;
@@ -791,8 +800,11 @@ void *envoyermessage(void* args){
             printf("Fin de l'envoi des messages\n");
             break;
         }
-        else if (strcmp(msg, "0") == 0){
+        else if (strcmp(msg, "retour") == 0){
+            pthread_cond_wait(&cond_activation_choix_salon,&affichage);
             res = gestionchaine(*argument);
+            pthread_mutex_unlock(&affichage);
+            pthread_cond_signal(&cond_activation_reception_message);
             if (res == -1){
                 puts("Arret communication message");
                 pthread_exit(0);
@@ -837,6 +849,7 @@ void *recevoirmessage(void* args){
     int res, dSock;
     char msg[280];
     dSock = argument->dSock;
+    pthread_cond_wait(&cond_activation_reception_message,&affichage);
 
     while(1){
         res = recv(dSock,msg, sizeof(msg)+1,0);
@@ -850,6 +863,12 @@ void *recevoirmessage(void* args){
         } else if (strcmp(msg, "fin") == 0) {
             printf("Fin de la réception des messages\n");
             break;
+        }
+        else if (strcmp(msg, "retour") == 0){
+            puts("Retour au menu de gestion des salons");
+            pthread_mutex_unlock(&affichage);
+            pthread_cond_signal(&cond_activation_choix_salon);
+            pthread_cond_wait(&cond_activation_reception_message,&affichage);
         }
         printf("%s\n", msg);
         bzero(msg, 280);
@@ -909,6 +928,8 @@ int main (void){
     /*Initialisation des condition(pour la synchronisation)*/
     pthread_cond_init(&cond_activation_tranfert_fichier,0);
     pthread_cond_init(&cond_activation_message,0);
+    pthread_cond_init(&cond_activation_choix_salon,0);
+    pthread_cond_init(&cond_activation_reception_message,0);
 
 
     /*Création des threads d'envoi et de reception*/

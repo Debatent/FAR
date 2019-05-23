@@ -284,7 +284,7 @@ int connexionSalon(int dSC, char *pseudo) {
     while (1) {
         //Récupère le nom du salon
         recv(dSC, nomSalon, sizeof(nomSalon), 0);
-
+         puts(nomSalon);
         if (strcmp(nomSalon, "0") == 0) {
             strcpy(msg, "0");
             send(dSC, msg, sizeof(msg), 0);
@@ -294,7 +294,7 @@ int connexionSalon(int dSC, char *pseudo) {
         res = inserer(nomSalon, dSC, pseudo);
         if (res == 0) {
             printf("Insertion réussie\n");
-            sprintf(msg, "%d", res);
+            strcpy(msg, "0");
             send(dSC, msg, sizeof(msg), 0);
             break;
         } else if (res == -1) {
@@ -303,8 +303,10 @@ int connexionSalon(int dSC, char *pseudo) {
             res = -1;
             printf("Salon plein\n");
         }
-        sprintf(msg, "%d", res);
+        strcpy(nomSalon,"");
+        strcpy(msg, "-1");
         send(dSC, msg, sizeof(msg), 0);
+
     }
     return 0;
 }
@@ -442,10 +444,11 @@ void *threadEnvoi(void *args)
         }
         bzero(msg, 280);
     }
-
+    
     while (1) {
         //Envoi les chaines disponibles
         strcpy(chaines, getChaines());
+
         if (strcmp(chaines, "") == 0) {
             strcpy(chaines, "Aucune chaîne de disponible\n");
             send(dSC, chaines, sizeof(chaines), 0);
