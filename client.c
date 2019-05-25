@@ -851,6 +851,7 @@ void *recevoirmessage(void* args){
     dSock = argument->dSock;
     pthread_cond_wait(&cond_activation_reception_message,&affichage);
 
+    printf("En attente de messages...\n");
     while(1){
         res = recv(dSock,msg, sizeof(msg)+1,0);
         if (res == 0){
